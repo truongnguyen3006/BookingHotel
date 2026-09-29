@@ -6,7 +6,9 @@ import kotlinx.coroutines.flow.StateFlow
 interface RoomRepository {
     val rooms: StateFlow<List<Room>>
 
+    suspend fun refreshRooms(): Result<Unit>
+
     fun getRoomById(roomId: Int): Room?
 
-    fun bookRoom(roomId: Int, quantity: Int): Room?
+    suspend fun bookRoom(roomId: Int, quantity: Int): Result<Room>
 }

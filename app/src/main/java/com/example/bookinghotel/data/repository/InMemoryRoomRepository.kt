@@ -6,20 +6,27 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+/**
+ * Local repository kept as a lightweight fake implementation for previews/tests.
+ * The running app uses RetrofitRoomRepository in Phase 3.
+ */
 class InMemoryRoomRepository : RoomRepository {
 
     private val _rooms = MutableStateFlow(createInitialRooms())
     override val rooms: StateFlow<List<Room>> = _rooms.asStateFlow()
 
+    override suspend fun refreshRooms(): Result<Unit> = Result.success(Unit)
+
     override fun getRoomById(roomId: Int): Room? {
         return _rooms.value.firstOrNull { it.id == roomId }
     }
 
-    override fun bookRoom(roomId: Int, quantity: Int): Room? {
-        val currentRoom = getRoomById(roomId) ?: return null
+    override suspend fun bookRoom(roomId: Int, quantity: Int): Result<Room> {
+        val currentRoom = getRoomById(roomId)
+            ?: return Result.failure(IllegalArgumentException("Room not found"))
 
         if (quantity <= 0 || quantity > currentRoom.availableRooms) {
-            return null
+            return Result.failure(IllegalArgumentException("Invalid booking quantity"))
         }
 
         val updatedRoom = currentRoom.copy(
@@ -30,7 +37,7 @@ class InMemoryRoomRepository : RoomRepository {
             if (room.id == roomId) updatedRoom else room
         }
 
-        return updatedRoom
+        return Result.success(updatedRoom)
     }
 
     private fun createInitialRooms(): List<Room> {
