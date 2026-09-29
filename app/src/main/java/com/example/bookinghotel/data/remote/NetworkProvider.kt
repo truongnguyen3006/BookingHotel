@@ -1,16 +1,4 @@
 package com.example.bookinghotel.data.remote
 
-import com.example.bookinghotel.BuildConfig
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
-
-object NetworkProvider {
-
-    val hotelApi: HotelApiService by lazy {
-        Retrofit.Builder()
-            .baseUrl(BuildConfig.API_BASE_URL)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-            .create(HotelApiService::class.java)
-    }
-}
+// Phase 4: Retrofit/HotelApiService are now created by Hilt in di/NetworkModule.kt.
+// This file remains only so applying the patch cleanly replaces the old NetworkProvider object.

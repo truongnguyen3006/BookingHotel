@@ -4,11 +4,12 @@ import com.example.bookinghotel.data.Room
 import com.example.bookinghotel.data.remote.HotelApiService
 import com.example.bookinghotel.data.remote.dto.BookingRequestDto
 import com.example.bookinghotel.data.remote.toDomain
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class RetrofitRoomRepository(
+class RetrofitRoomRepository @Inject constructor(
     private val api: HotelApiService
 ) : RoomRepository {
 

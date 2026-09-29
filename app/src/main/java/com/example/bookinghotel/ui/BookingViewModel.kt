@@ -3,15 +3,15 @@ package com.example.bookinghotel.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.bookinghotel.data.Room
-import com.example.bookinghotel.data.remote.NetworkProvider
-import com.example.bookinghotel.data.repository.RetrofitRoomRepository
 import com.example.bookinghotel.data.repository.RoomRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.IOException
-import retrofit2.HttpException
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 
 sealed interface BookingUiState {
     data object Idle : BookingUiState
@@ -20,8 +20,9 @@ sealed interface BookingUiState {
     data class Error(val message: String) : BookingUiState
 }
 
-class BookingViewModel(
-    private val roomRepository: RoomRepository = RetrofitRoomRepository(NetworkProvider.hotelApi)
+@HiltViewModel
+class BookingViewModel @Inject constructor(
+    private val roomRepository: RoomRepository
 ) : ViewModel() {
 
     val rooms: StateFlow<List<Room>> = roomRepository.rooms
