@@ -7,9 +7,18 @@ import com.example.bookinghotel.data.Room
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
+enum class RoomDataSource {
+    EMPTY,
+    NETWORK,
+    CACHE,
+    MEMORY
+}
+
 interface RoomRepository {
     val rooms: StateFlow<List<Room>>
     val bookingHistory: Flow<List<Booking>>
+    val roomDataSource: StateFlow<RoomDataSource>
+    val lastRoomSyncAt: StateFlow<Long?>
 
     suspend fun refreshRooms(): Result<Unit>
 

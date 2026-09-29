@@ -6,6 +6,7 @@ import com.example.bookinghotel.data.Booking
 import com.example.bookinghotel.data.PaymentMethod
 import com.example.bookinghotel.data.PaymentResult
 import com.example.bookinghotel.data.Room
+import com.example.bookinghotel.data.repository.RoomDataSource
 import com.example.bookinghotel.data.repository.RoomRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.IOException
@@ -43,6 +44,8 @@ class BookingViewModel @Inject constructor(
 ) : ViewModel() {
 
     val rooms: StateFlow<List<Room>> = roomRepository.rooms
+    val roomDataSource: StateFlow<RoomDataSource> = roomRepository.roomDataSource
+    val lastRoomSyncAt: StateFlow<Long?> = roomRepository.lastRoomSyncAt
 
     private val _filterState = MutableStateFlow(RoomFilterState())
     val filterState: StateFlow<RoomFilterState> = _filterState.asStateFlow()

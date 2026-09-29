@@ -52,6 +52,7 @@ import androidx.navigation.NavController
 import com.example.bookinghotel.R
 import com.example.bookinghotel.data.Room
 import com.example.bookinghotel.ui.BookingViewModel
+import com.example.bookinghotel.data.repository.RoomDataSource
 import com.example.bookinghotel.ui.PriceFilter
 import com.example.bookinghotel.ui.RoomSortOption
 import com.example.bookinghotel.ui.Screen
@@ -64,6 +65,8 @@ fun RoomListScreen(viewModel: BookingViewModel, navController: NavController) {
     val filterState by viewModel.filterState.collectAsState()
     val isLoading by viewModel.isLoadingRooms.collectAsState()
     val loadError by viewModel.roomLoadError.collectAsState()
+    val roomDataSource by viewModel.roomDataSource.collectAsState()
+    val lastRoomSyncAt by viewModel.lastRoomSyncAt.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(loadError, sourceRooms.isNotEmpty()) {
@@ -211,6 +214,25 @@ fun RoomListScreen(viewModel: BookingViewModel, navController: NavController) {
                         label = { Text("Xóa bộ lọc") }
                     )
                 }
+            }
+
+            if (roomDataSource == RoomDataSource.CACHE && sourceRooms.isNotEmpty()) {
+                AssistChip(
+                    onClick = viewModel::loadRooms,
+                    label = {
+                        Text(
+                            if (lastRoomSyncAt != null) {
+                                "Đang dùng dữ liệu đã lưu • chạm để đồng bộ lại"
+                            } else {
+                                "Đang dùng dữ liệu đã lưu"
+                            }
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Default.Refresh, contentDescription = null)
+                    },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
             }
 
             Box(

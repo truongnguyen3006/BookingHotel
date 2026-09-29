@@ -21,6 +21,12 @@ class InMemoryRoomRepository : RoomRepository {
     private val _rooms = MutableStateFlow(createInitialRooms())
     override val rooms: StateFlow<List<Room>> = _rooms.asStateFlow()
 
+    private val _roomDataSource = MutableStateFlow(RoomDataSource.MEMORY)
+    override val roomDataSource: StateFlow<RoomDataSource> = _roomDataSource.asStateFlow()
+
+    private val _lastRoomSyncAt = MutableStateFlow<Long?>(System.currentTimeMillis())
+    override val lastRoomSyncAt: StateFlow<Long?> = _lastRoomSyncAt.asStateFlow()
+
     private val _bookingHistory = MutableStateFlow<List<Booking>>(emptyList())
     override val bookingHistory: StateFlow<List<Booking>> = _bookingHistory.asStateFlow()
 

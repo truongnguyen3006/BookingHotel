@@ -5,6 +5,8 @@ import com.example.bookinghotel.data.PaymentMethod
 import com.example.bookinghotel.data.PaymentResult
 import com.example.bookinghotel.data.Room
 import com.example.bookinghotel.data.local.BookingDao
+import com.example.bookinghotel.data.local.RoomCacheDao
+import com.example.bookinghotel.data.local.toCacheEntity
 import com.example.bookinghotel.data.local.toDomain
 import com.example.bookinghotel.data.local.toEntity
 import com.example.bookinghotel.data.remote.HotelApiService
@@ -23,20 +25,63 @@ import kotlinx.coroutines.flow.map
 
 class RetrofitRoomRepository @Inject constructor(
     private val api: HotelApiService,
-    private val bookingDao: BookingDao
+    private val bookingDao: BookingDao,
+    private val roomCacheDao: RoomCacheDao
 ) : RoomRepository {
 
     private val _rooms = MutableStateFlow<List<Room>>(emptyList())
     override val rooms: StateFlow<List<Room>> = _rooms.asStateFlow()
+
+    private val _roomDataSource = MutableStateFlow(RoomDataSource.EMPTY)
+    override val roomDataSource: StateFlow<RoomDataSource> = _roomDataSource.asStateFlow()
+
+    private val _lastRoomSyncAt = MutableStateFlow<Long?>(null)
+    override val lastRoomSyncAt: StateFlow<Long?> = _lastRoomSyncAt.asStateFlow()
 
     override val bookingHistory: Flow<List<Booking>> =
         bookingDao.observeBookings().map { entities ->
             entities.map { it.toDomain() }
         }
 
+    /**
+     * Offline-first refresh strategy:
+     * 1. Load cached rooms immediately when available.
+     * 2. Try to refresh from the remote API.
+     * 3. On remote success, replace the cache and publish fresh data.
+     * 4. On remote failure, keep cached data and consider the refresh usable.
+     *    The failure is returned only when there is no cached data to fall back to.
+     */
     override suspend fun refreshRooms(): Result<Unit> {
+        val cachedRooms = runCatching {
+            roomCacheDao.getRooms()
+        }.getOrDefault(emptyList())
+
+        if (cachedRooms.isNotEmpty()) {
+            _rooms.value = cachedRooms.map { it.toDomain() }
+            _roomDataSource.value = RoomDataSource.CACHE
+            _lastRoomSyncAt.value = runCatching {
+                roomCacheDao.getLastUpdatedAt()
+            }.getOrNull()
+        }
+
         return runCatching {
-            _rooms.value = api.getRooms().map { it.toDomain() }
+            val freshRooms = api.getRooms().map { it.toDomain() }
+            val syncedAt = System.currentTimeMillis()
+
+            roomCacheDao.replaceAll(
+                freshRooms.map { room -> room.toCacheEntity(syncedAt) }
+            )
+
+            _rooms.value = freshRooms
+            _roomDataSource.value = RoomDataSource.NETWORK
+            _lastRoomSyncAt.value = syncedAt
+        }.recoverCatching { throwable ->
+            if (_rooms.value.isNotEmpty()) {
+                // Cached content remains usable while the device/server is offline.
+                Unit
+            } else {
+                throw throwable
+            }
         }
     }
 
@@ -80,6 +125,11 @@ class RetrofitRoomRepository @Inject constructor(
             _rooms.value = _rooms.value.map { room ->
                 if (room.id == updatedRoom.id) updatedRoom else room
             }
+
+            val syncedAt = System.currentTimeMillis()
+            roomCacheDao.upsertRoom(updatedRoom.toCacheEntity(syncedAt))
+            _roomDataSource.value = RoomDataSource.NETWORK
+            _lastRoomSyncAt.value = syncedAt
 
             val nights = response.nights.takeIf { it > 0 }
                 ?: calculateNights(response.checkInDate, response.checkOutDate)

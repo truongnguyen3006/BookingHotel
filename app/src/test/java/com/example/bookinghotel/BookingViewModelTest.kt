@@ -5,6 +5,7 @@ import com.example.bookinghotel.data.PaymentMethod
 import com.example.bookinghotel.data.PaymentResult
 import com.example.bookinghotel.data.Room
 import com.example.bookinghotel.data.repository.InMemoryRoomRepository
+import com.example.bookinghotel.data.repository.RoomDataSource
 import com.example.bookinghotel.data.repository.RoomRepository
 import com.example.bookinghotel.ui.BookingUiState
 import com.example.bookinghotel.ui.BookingViewModel
@@ -113,6 +114,12 @@ class BookingViewModelTest {
     ) : RoomRepository {
         private val _rooms = MutableStateFlow<List<Room>>(emptyList())
         override val rooms: StateFlow<List<Room>> = _rooms.asStateFlow()
+
+        private val _roomDataSource = MutableStateFlow(RoomDataSource.EMPTY)
+        override val roomDataSource: StateFlow<RoomDataSource> = _roomDataSource.asStateFlow()
+
+        private val _lastRoomSyncAt = MutableStateFlow<Long?>(null)
+        override val lastRoomSyncAt: StateFlow<Long?> = _lastRoomSyncAt.asStateFlow()
 
         private val _history = MutableStateFlow<List<Booking>>(emptyList())
         override val bookingHistory: Flow<List<Booking>> = _history

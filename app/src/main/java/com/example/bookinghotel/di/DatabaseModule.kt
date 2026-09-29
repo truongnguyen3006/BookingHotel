@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.example.bookinghotel.data.local.BookingDao
 import com.example.bookinghotel.data.local.BookingDatabase
+import com.example.bookinghotel.data.local.RoomCacheDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -25,12 +26,20 @@ object DatabaseModule {
             BookingDatabase::class.java,
             "booking_hotel.db"
         )
-            .addMigrations(BookingDatabase.MIGRATION_1_2)
+            .addMigrations(
+                BookingDatabase.MIGRATION_1_2,
+                BookingDatabase.MIGRATION_2_3
+            )
             .build()
     }
 
     @Provides
     fun provideBookingDao(database: BookingDatabase): BookingDao {
         return database.bookingDao()
+    }
+
+    @Provides
+    fun provideRoomCacheDao(database: BookingDatabase): RoomCacheDao {
+        return database.roomCacheDao()
     }
 }

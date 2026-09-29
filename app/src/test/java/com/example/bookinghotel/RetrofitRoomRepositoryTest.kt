@@ -4,6 +4,8 @@ import com.example.bookinghotel.data.Booking
 import com.example.bookinghotel.data.PaymentMethod
 import com.example.bookinghotel.data.local.BookingDao
 import com.example.bookinghotel.data.local.BookingEntity
+import com.example.bookinghotel.data.local.RoomCacheDao
+import com.example.bookinghotel.data.local.RoomCacheEntity
 import com.example.bookinghotel.data.remote.HotelApiService
 import com.example.bookinghotel.data.remote.dto.BookingRequestDto
 import com.example.bookinghotel.data.remote.dto.BookingResponseDto
@@ -11,6 +13,8 @@ import com.example.bookinghotel.data.remote.dto.PaymentRequestDto
 import com.example.bookinghotel.data.remote.dto.PaymentResponseDto
 import com.example.bookinghotel.data.remote.dto.RoomDto
 import com.example.bookinghotel.data.repository.RetrofitRoomRepository
+import com.example.bookinghotel.data.repository.RoomDataSource
+import java.io.IOException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
@@ -22,9 +26,10 @@ import org.junit.Test
 class RetrofitRoomRepositoryTest {
 
     @Test
-    fun refreshRooms_mapsApiResponseIntoRepositoryState() = runTest {
+    fun refreshRooms_networkSuccess_mapsAndCachesResponse() = runTest {
         val api = FakeHotelApiService()
-        val repository = RetrofitRoomRepository(api, FakeBookingDao())
+        val cacheDao = FakeRoomCacheDao()
+        val repository = RetrofitRoomRepository(api, FakeBookingDao(), cacheDao)
 
         val result = repository.refreshRooms()
 
@@ -32,13 +37,61 @@ class RetrofitRoomRepositoryTest {
         assertEquals(1, repository.rooms.value.size)
         assertEquals("standard", repository.rooms.value.first().typeKey)
         assertEquals(10, repository.rooms.value.first().availableRooms)
+        assertEquals(RoomDataSource.NETWORK, repository.roomDataSource.value)
+        assertEquals(1, cacheDao.cachedRooms.size)
+        assertTrue((repository.lastRoomSyncAt.value ?: 0L) > 0L)
     }
 
     @Test
-    fun bookRoom_updatesRemoteInventoryAndPersistsBookingLocally() = runTest {
+    fun refreshRooms_networkFailure_usesCachedRoomsOffline() = runTest {
+        val api = FakeHotelApiService().apply {
+            roomsFailure = IOException("offline")
+        }
+        val cacheDao = FakeRoomCacheDao(
+            initialRooms = listOf(
+                RoomCacheEntity(
+                    id = 2,
+                    imageKey = "deluxe_room",
+                    typeKey = "deluxe",
+                    pricePerNight = 80.0,
+                    amenities = listOf("Wi-Fi", "TV", "Mini Bar"),
+                    availableRooms = 4,
+                    lastUpdatedAt = 1234L
+                )
+            )
+        )
+        val repository = RetrofitRoomRepository(api, FakeBookingDao(), cacheDao)
+
+        val result = repository.refreshRooms()
+
+        assertTrue(result.isSuccess)
+        assertEquals(1, repository.rooms.value.size)
+        assertEquals("deluxe", repository.rooms.value.first().typeKey)
+        assertEquals(4, repository.rooms.value.first().availableRooms)
+        assertEquals(RoomDataSource.CACHE, repository.roomDataSource.value)
+        assertEquals(1234L, repository.lastRoomSyncAt.value)
+    }
+
+    @Test
+    fun refreshRooms_networkFailureAndNoCache_returnsFailure() = runTest {
+        val api = FakeHotelApiService().apply {
+            roomsFailure = IOException("offline")
+        }
+        val repository = RetrofitRoomRepository(api, FakeBookingDao(), FakeRoomCacheDao())
+
+        val result = repository.refreshRooms()
+
+        assertTrue(result.isFailure)
+        assertTrue(repository.rooms.value.isEmpty())
+        assertEquals(RoomDataSource.EMPTY, repository.roomDataSource.value)
+    }
+
+    @Test
+    fun bookRoom_updatesRemoteInventoryAndPersistsBookingAndCache() = runTest {
         val api = FakeHotelApiService()
         val dao = FakeBookingDao(nextInsertedId = 42L)
-        val repository = RetrofitRoomRepository(api, dao)
+        val cacheDao = FakeRoomCacheDao()
+        val repository = RetrofitRoomRepository(api, dao, cacheDao)
         repository.refreshRooms()
 
         api.bookingResponse = BookingResponseDto(
@@ -55,6 +108,7 @@ class RetrofitRoomRepositoryTest {
         assertEquals(1, api.lastBookingRequest?.roomId)
         assertEquals(2, api.lastBookingRequest?.quantity)
         assertEquals(8, repository.getRoomById(1)?.availableRooms)
+        assertEquals(8, cacheDao.cachedRooms.first { it.id == 1 }.availableRooms)
         assertEquals(42L, booking.localId)
         assertEquals(7, booking.bookingId)
         assertEquals("PENDING_PAYMENT", dao.lastInserted?.status)
@@ -63,7 +117,7 @@ class RetrofitRoomRepositoryTest {
     @Test
     fun bookRoom_nonPositiveQuantity_failsBeforeCallingApi() = runTest {
         val api = FakeHotelApiService()
-        val repository = RetrofitRoomRepository(api, FakeBookingDao())
+        val repository = RetrofitRoomRepository(api, FakeBookingDao(), FakeRoomCacheDao())
 
         val result = repository.bookRoom(roomId = 1, quantity = 0)
 
@@ -83,7 +137,7 @@ class RetrofitRoomRepositoryTest {
             )
         }
         val dao = FakeBookingDao()
-        val repository = RetrofitRoomRepository(api, dao)
+        val repository = RetrofitRoomRepository(api, dao, FakeRoomCacheDao())
         val booking = Booking(
             localId = 99L,
             bookingId = 7,
@@ -122,6 +176,7 @@ class RetrofitRoomRepositoryTest {
                 availableRooms = 10
             )
         )
+        var roomsFailure: Throwable? = null
 
         var bookingResponse: BookingResponseDto = BookingResponseDto(
             bookingId = 1,
@@ -144,7 +199,10 @@ class RetrofitRoomRepositoryTest {
         var lastPaymentBookingId: Int? = null
         var lastPaymentRequest: PaymentRequestDto? = null
 
-        override suspend fun getRooms(): List<RoomDto> = roomsResponse
+        override suspend fun getRooms(): List<RoomDto> {
+            roomsFailure?.let { throw it }
+            return roomsResponse
+        }
 
         override suspend fun createBooking(request: BookingRequestDto): BookingResponseDto {
             createBookingCalls++
@@ -208,6 +266,33 @@ class RetrofitRoomRepositoryTest {
                     entity
                 }
             }
+        }
+    }
+
+    private class FakeRoomCacheDao(
+        initialRooms: List<RoomCacheEntity> = emptyList()
+    ) : RoomCacheDao {
+        var cachedRooms: List<RoomCacheEntity> = initialRooms
+
+        override suspend fun getRooms(): List<RoomCacheEntity> = cachedRooms
+
+        override suspend fun getLastUpdatedAt(): Long? =
+            cachedRooms.maxOfOrNull { it.lastUpdatedAt }
+
+        override suspend fun upsertRooms(rooms: List<RoomCacheEntity>) {
+            rooms.forEach { upsertRoom(it) }
+        }
+
+        override suspend fun upsertRoom(room: RoomCacheEntity) {
+            cachedRooms = cachedRooms.filterNot { it.id == room.id } + room
+        }
+
+        override suspend fun clearRooms() {
+            cachedRooms = emptyList()
+        }
+
+        override suspend fun replaceAll(rooms: List<RoomCacheEntity>) {
+            cachedRooms = rooms
         }
     }
 }
