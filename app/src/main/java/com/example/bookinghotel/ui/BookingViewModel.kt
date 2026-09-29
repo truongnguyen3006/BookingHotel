@@ -2,14 +2,17 @@ package com.example.bookinghotel.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.bookinghotel.data.Booking
 import com.example.bookinghotel.data.Room
 import com.example.bookinghotel.data.repository.RoomRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.IOException
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 
@@ -27,11 +30,21 @@ class BookingViewModel @Inject constructor(
 
     val rooms: StateFlow<List<Room>> = roomRepository.rooms
 
+    val bookingHistory: StateFlow<List<Booking>> = roomRepository.bookingHistory
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList()
+        )
+
     private val _selectedRoom = MutableStateFlow<Room?>(null)
     val selectedRoom: StateFlow<Room?> = _selectedRoom.asStateFlow()
 
     private val _quantity = MutableStateFlow(1)
     val quantity: StateFlow<Int> = _quantity.asStateFlow()
+
+    private val _lastBooking = MutableStateFlow<Booking?>(null)
+    val lastBooking: StateFlow<Booking?> = _lastBooking.asStateFlow()
 
     private val _isLoadingRooms = MutableStateFlow(false)
     val isLoadingRooms: StateFlow<Boolean> = _isLoadingRooms.asStateFlow()
@@ -77,9 +90,10 @@ class BookingViewModel @Inject constructor(
             _bookingState.value = BookingUiState.Loading
 
             roomRepository.bookRoom(currentRoom.id, quantity)
-                .onSuccess { updatedRoom ->
-                    _selectedRoom.value = updatedRoom
-                    _quantity.value = quantity
+                .onSuccess { booking ->
+                    _selectedRoom.value = roomRepository.getRoomById(booking.roomId)
+                    _quantity.value = booking.quantity
+                    _lastBooking.value = booking
                     _bookingState.value = BookingUiState.Success
                 }
                 .onFailure { throwable ->

@@ -40,36 +40,51 @@ fun RoomListScreen(viewModel: BookingViewModel, navController: NavController) {
     val isLoading = viewModel.isLoadingRooms.collectAsState().value
     val loadError = viewModel.roomLoadError.collectAsState().value
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        when {
-            isLoading && rooms.isEmpty() -> {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            }
+    Column(modifier = Modifier.fillMaxSize()) {
+        Button(
+            onClick = { navController.navigate(Screen.History.route) },
+            modifier = Modifier
+                .align(Alignment.End)
+                .padding(horizontal = 20.dp, vertical = 8.dp)
+        ) {
+            Text("Lịch sử đặt phòng")
+        }
 
-            loadError != null && rooms.isEmpty() -> {
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(text = loadError, color = Color.Red)
-                    Button(onClick = viewModel::loadRooms) {
-                        Text("Thử lại")
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        ) {
+            when {
+                isLoading && rooms.isEmpty() -> {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                }
+
+                loadError != null && rooms.isEmpty() -> {
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(text = loadError, color = Color.Red)
+                        Button(onClick = viewModel::loadRooms) {
+                            Text("Thử lại")
+                        }
                     }
                 }
-            }
 
-            else -> {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(top = 10.dp)
-                ) {
-                    items(rooms, key = { it.id }) { room ->
-                        RoomItem(room = room) {
-                            viewModel.selectRoom(room)
-                            navController.navigate(Screen.Detail.route)
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 10.dp)
+                    ) {
+                        items(rooms, key = { it.id }) { room ->
+                            RoomItem(room = room) {
+                                viewModel.selectRoom(room)
+                                navController.navigate(Screen.Detail.route)
+                            }
                         }
                     }
                 }
@@ -136,6 +151,7 @@ fun RoomItemPreview() {
             id = 1,
             image = R.drawable.standard_room,
             type = R.string.room_style_1,
+            typeKey = "standard",
             pricePerNight = 50.0,
             amenities = listOf("Wi-Fi", "TV"),
             availableRooms = 10

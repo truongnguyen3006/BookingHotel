@@ -1,19 +1,26 @@
 package com.example.bookinghotel.data.repository
 
 import com.example.bookinghotel.R
+import com.example.bookinghotel.data.Booking
 import com.example.bookinghotel.data.Room
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Local repository kept as a lightweight fake implementation for previews/tests.
- * The running app uses RetrofitRoomRepository in Phase 3.
+ * Lightweight fake implementation for previews/tests.
+ * The running app uses RetrofitRoomRepository.
  */
 class InMemoryRoomRepository : RoomRepository {
 
     private val _rooms = MutableStateFlow(createInitialRooms())
     override val rooms: StateFlow<List<Room>> = _rooms.asStateFlow()
+
+    private val _bookingHistory = MutableStateFlow<List<Booking>>(emptyList())
+    override val bookingHistory: StateFlow<List<Booking>> = _bookingHistory.asStateFlow()
+
+    private var nextBookingId = 1
+    private var nextLocalId = 1L
 
     override suspend fun refreshRooms(): Result<Unit> = Result.success(Unit)
 
@@ -21,7 +28,7 @@ class InMemoryRoomRepository : RoomRepository {
         return _rooms.value.firstOrNull { it.id == roomId }
     }
 
-    override suspend fun bookRoom(roomId: Int, quantity: Int): Result<Room> {
+    override suspend fun bookRoom(roomId: Int, quantity: Int): Result<Booking> {
         val currentRoom = getRoomById(roomId)
             ?: return Result.failure(IllegalArgumentException("Room not found"))
 
@@ -37,7 +44,20 @@ class InMemoryRoomRepository : RoomRepository {
             if (room.id == roomId) updatedRoom else room
         }
 
-        return Result.success(updatedRoom)
+        val booking = Booking(
+            localId = nextLocalId++,
+            bookingId = nextBookingId++,
+            roomId = updatedRoom.id,
+            roomTypeKey = updatedRoom.typeKey,
+            quantity = quantity,
+            pricePerNight = updatedRoom.pricePerNight,
+            totalPrice = updatedRoom.pricePerNight * quantity,
+            status = "PENDING_PAYMENT",
+            createdAt = System.currentTimeMillis()
+        )
+
+        _bookingHistory.value = listOf(booking) + _bookingHistory.value
+        return Result.success(booking)
     }
 
     private fun createInitialRooms(): List<Room> {
@@ -46,6 +66,7 @@ class InMemoryRoomRepository : RoomRepository {
                 id = 1,
                 image = R.drawable.standard_room,
                 type = R.string.room_style_1,
+                typeKey = "standard",
                 pricePerNight = 50.0,
                 amenities = listOf("Wi-Fi", "TV"),
                 availableRooms = 10
@@ -54,6 +75,7 @@ class InMemoryRoomRepository : RoomRepository {
                 id = 2,
                 image = R.drawable.deluxe_room,
                 type = R.string.room_style_2,
+                typeKey = "deluxe",
                 pricePerNight = 80.0,
                 amenities = listOf("Wi-Fi", "TV", "Mini Bar"),
                 availableRooms = 10
@@ -62,6 +84,7 @@ class InMemoryRoomRepository : RoomRepository {
                 id = 3,
                 image = R.drawable.suite_room,
                 type = R.string.room_style_3,
+                typeKey = "suite",
                 pricePerNight = 120.0,
                 amenities = listOf("Wi-Fi", "TV", "Mini Bar", "Jacuzzi"),
                 availableRooms = 10
@@ -70,6 +93,7 @@ class InMemoryRoomRepository : RoomRepository {
                 id = 4,
                 image = R.drawable.executive_room,
                 type = R.string.room_style_4,
+                typeKey = "executive",
                 pricePerNight = 150.0,
                 amenities = listOf("Wi-Fi", "TV", "Mini Bar", "Jacuzzi", "Breakfast"),
                 availableRooms = 10
@@ -78,6 +102,7 @@ class InMemoryRoomRepository : RoomRepository {
                 id = 5,
                 image = R.drawable.family_room,
                 type = R.string.room_style_5,
+                typeKey = "family",
                 pricePerNight = 100.0,
                 amenities = listOf("Wi-Fi", "TV", "Kitchenette"),
                 availableRooms = 10

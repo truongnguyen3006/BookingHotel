@@ -9,6 +9,7 @@ fun RoomDto.toDomain(): Room {
         id = id,
         image = imageKey.toDrawableResource(),
         type = typeKey.toStringResource(),
+        typeKey = typeKey,
         pricePerNight = pricePerNight,
         amenities = amenities,
         availableRooms = availableRooms

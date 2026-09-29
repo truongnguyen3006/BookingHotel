@@ -18,6 +18,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.bookinghotel.ui.BookingViewModel
 import com.example.bookinghotel.ui.Screen
+import com.example.bookinghotel.ui.screens.BookingHistoryScreen
 import com.example.bookinghotel.ui.screens.BookingSummaryScreen
 import com.example.bookinghotel.ui.screens.RoomDetailsScreen
 import com.example.bookinghotel.ui.screens.RoomListScreen
@@ -62,6 +63,9 @@ fun BookingHotelApp(
             }
             composable(Screen.Summary.route) {
                 BookingSummaryScreen(viewModel, navController)
+            }
+            composable(Screen.History.route) {
+                BookingHistoryScreen(viewModel)
             }
         }
     }
