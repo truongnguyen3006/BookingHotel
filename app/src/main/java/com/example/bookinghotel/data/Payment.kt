@@ -10,5 +10,6 @@ data class PaymentResult(
     val status: String,
     val method: PaymentMethod,
     val transactionId: String?,
-    val message: String
+    val message: String,
+    val paidAt: Long? = null
 )

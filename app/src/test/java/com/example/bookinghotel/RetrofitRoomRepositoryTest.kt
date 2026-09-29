@@ -105,6 +105,7 @@ class RetrofitRoomRepositoryTest {
         assertEquals(7, api.lastPaymentBookingId)
         assertEquals("QR", api.lastPaymentRequest?.method)
         assertFalse(api.lastPaymentRequest?.simulateFailure ?: true)
+        assertTrue(api.lastPaymentRequest?.idempotencyKey?.isNotBlank() == true)
         assertEquals(99L, dao.lastUpdatedLocalId)
         assertEquals("SUCCESS", dao.lastUpdatedStatus)
         assertEquals("TXN-7", result.transactionId)
@@ -183,6 +184,29 @@ class RetrofitRoomRepositoryTest {
             lastUpdatedStatus = status
             bookings.value = bookings.value.map { entity ->
                 if (entity.localId == localId) entity.copy(status = status) else entity
+            }
+        }
+
+        override suspend fun updatePaymentDetails(
+            localId: Long,
+            status: String,
+            paymentMethod: String?,
+            transactionId: String?,
+            paidAt: Long?
+        ) {
+            lastUpdatedLocalId = localId
+            lastUpdatedStatus = status
+            bookings.value = bookings.value.map { entity ->
+                if (entity.localId == localId) {
+                    entity.copy(
+                        status = status,
+                        paymentMethod = paymentMethod,
+                        transactionId = transactionId,
+                        paidAt = paidAt
+                    )
+                } else {
+                    entity
+                }
             }
         }
     }

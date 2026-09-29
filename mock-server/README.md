@@ -1,22 +1,12 @@
-# Local Mock Hotel REST API
+# Booking Hotel Mock REST API
 
-This lightweight Node.js server exists only for Phase 3 development so the Android app can make real HTTP requests through Retrofit without depending on a third-party API.
-
-## Run
-
-From the project root:
+Run from the project root:
 
 ```powershell
 node mock-server/server.js
 ```
 
-Keep that terminal open while the Android app is running.
-
-The Android Emulator accesses the host machine through `10.0.2.2`, so the debug base URL is:
-
-```text
-http://10.0.2.2:8080/
-```
+Android Emulator connects to `http://10.0.2.2:8080/`.
 
 ## Endpoints
 
@@ -25,14 +15,30 @@ http://10.0.2.2:8080/
 - `GET /api/rooms/{id}`
 - `POST /api/bookings`
 - `GET /api/bookings/{id}`
+- `POST /api/bookings/{id}/payment`
 
-Example booking body:
+### Create booking
 
 ```json
 {
   "roomId": 1,
-  "quantity": 2
+  "quantity": 2,
+  "checkInDate": 1790726400000,
+  "checkOutDate": 1790899200000,
+  "guests": 3
 }
 ```
 
-The server stores data in memory. Restarting it resets room availability to 10 for each room.
+The server calculates the number of nights and total price.
+
+### Payment
+
+```json
+{
+  "method": "CARD",
+  "simulateFailure": false,
+  "idempotencyKey": "a-client-generated-uuid"
+}
+```
+
+The payment flow supports `PROCESSING`, `FAILED`, and `SUCCESS`. Repeating the same payment request with the same idempotency key returns the same result instead of creating a duplicate transaction.

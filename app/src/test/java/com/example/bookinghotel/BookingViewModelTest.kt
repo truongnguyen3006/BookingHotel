@@ -121,13 +121,19 @@ class BookingViewModelTest {
 
         override fun getRoomById(roomId: Int): Room? = null
 
-        override suspend fun bookRoom(roomId: Int, quantity: Int): Result<Booking> =
-            Result.failure(UnsupportedOperationException())
+        override suspend fun bookRoom(
+            roomId: Int,
+            quantity: Int,
+            checkInDate: Long,
+            checkOutDate: Long,
+            guests: Int
+        ): Result<Booking> = Result.failure(UnsupportedOperationException())
 
         override suspend fun payBooking(
             booking: Booking,
             method: PaymentMethod,
-            simulateFailure: Boolean
+            simulateFailure: Boolean,
+            idempotencyKey: String
         ): Result<PaymentResult> = Result.failure(UnsupportedOperationException())
     }
 }

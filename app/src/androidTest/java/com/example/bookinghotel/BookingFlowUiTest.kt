@@ -27,17 +27,18 @@ class BookingFlowUiTest {
         composeRule.onNodeWithTag("quantity_input").performTextClearance()
         composeRule.onNodeWithTag("quantity_input").performTextInput("2")
         composeRule.onNodeWithTag("book_button").performClick()
+        composeRule.onNodeWithTag("confirm_booking_button").performClick()
 
-        composeRule.onNodeWithText("Tóm tắt đặt phòng").assertIsDisplayed()
-        composeRule.onNodeWithText("Số lượng phòng đã đặt: 2").assertIsDisplayed()
+        composeRule.onNodeWithText("Đặt phòng thành công").assertIsDisplayed()
         composeRule.onNodeWithTag("summary_pay_button").performClick()
 
         composeRule.onNodeWithTag("payment_submit_button").performClick()
+        composeRule.onNodeWithTag("confirm_payment_button").performClick()
         composeRule.onNodeWithText("Thanh toán thành công").assertIsDisplayed()
         composeRule.onNodeWithTag("payment_history_button").performClick()
 
         composeRule.onNodeWithText("Booking #1").assertIsDisplayed()
-        composeRule.onNodeWithText("Trạng thái: Thành công").assertIsDisplayed()
+        composeRule.onNodeWithText("Thành công").assertIsDisplayed()
     }
 
     @Test

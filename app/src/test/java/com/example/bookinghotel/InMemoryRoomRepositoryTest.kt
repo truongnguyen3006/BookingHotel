@@ -85,4 +85,46 @@ class InMemoryRoomRepositoryTest {
         assertEquals("SUCCESS", repository.bookingHistory.first().first().status)
         assertEquals(1, repository.bookingHistory.first().size)
     }
+
+    @Test
+    fun payBooking_sameIdempotencyKey_returnsSamePaymentResult() = runTest {
+        val repository = InMemoryRoomRepository()
+        val booking = repository.bookRoom(roomId = 1, quantity = 1).getOrThrow()
+
+        val first = repository.payBooking(
+            booking = booking,
+            method = PaymentMethod.CARD,
+            simulateFailure = false,
+            idempotencyKey = "same-key"
+        ).getOrThrow()
+
+        val repeated = repository.payBooking(
+            booking = booking,
+            method = PaymentMethod.QR,
+            simulateFailure = true,
+            idempotencyKey = "same-key"
+        ).getOrThrow()
+
+        assertEquals(first, repeated)
+        assertEquals("SUCCESS", repeated.status)
+    }
+
+    @Test
+    fun bookRoom_multipleNights_calculatesStayTotal() = runTest {
+        val repository = InMemoryRoomRepository()
+        val checkIn = 1_790_726_400_000L
+        val checkOut = checkIn + (3L * 24L * 60L * 60L * 1000L)
+
+        val booking = repository.bookRoom(
+            roomId = 1,
+            quantity = 2,
+            checkInDate = checkIn,
+            checkOutDate = checkOut,
+            guests = 3
+        ).getOrThrow()
+
+        assertEquals(3, booking.nights)
+        assertEquals(3, booking.guests)
+        assertEquals(300.0, booking.totalPrice, 0.0)
+    }
 }

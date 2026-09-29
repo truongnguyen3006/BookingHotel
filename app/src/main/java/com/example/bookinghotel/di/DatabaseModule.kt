@@ -24,7 +24,9 @@ object DatabaseModule {
             context,
             BookingDatabase::class.java,
             "booking_hotel.db"
-        ).build()
+        )
+            .addMigrations(BookingDatabase.MIGRATION_1_2)
+            .build()
     }
 
     @Provides

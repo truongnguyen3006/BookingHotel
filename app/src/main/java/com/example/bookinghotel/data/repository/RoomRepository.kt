@@ -15,11 +15,18 @@ interface RoomRepository {
 
     fun getRoomById(roomId: Int): Room?
 
-    suspend fun bookRoom(roomId: Int, quantity: Int): Result<Booking>
+    suspend fun bookRoom(
+        roomId: Int,
+        quantity: Int,
+        checkInDate: Long = 0L,
+        checkOutDate: Long = 0L,
+        guests: Int = 1
+    ): Result<Booking>
 
     suspend fun payBooking(
         booking: Booking,
         method: PaymentMethod,
-        simulateFailure: Boolean = false
+        simulateFailure: Boolean = false,
+        idempotencyKey: String = ""
     ): Result<PaymentResult>
 }

@@ -93,4 +93,39 @@ class BookingDaoTest {
         val history = dao.observeBookings().first()
         assertEquals(listOf(2, 1), history.map { it.remoteBookingId })
     }
+
+    @Test
+    fun updatePaymentDetails_persistsReceiptFields() = runBlocking {
+        val dao = database.bookingDao()
+        val localId = dao.insertBooking(
+            BookingEntity(
+                remoteBookingId = 20,
+                roomId = 1,
+                roomTypeKey = "standard",
+                quantity = 1,
+                pricePerNight = 50.0,
+                totalPrice = 100.0,
+                status = "PENDING_PAYMENT",
+                createdAt = 1000L,
+                checkInDate = 2000L,
+                checkOutDate = 3000L,
+                guests = 2,
+                nights = 2
+            )
+        )
+
+        dao.updatePaymentDetails(
+            localId = localId,
+            status = "SUCCESS",
+            paymentMethod = "QR",
+            transactionId = "TXN-20",
+            paidAt = 4000L
+        )
+
+        val updated = dao.observeBookings().first().single()
+        assertEquals("SUCCESS", updated.status)
+        assertEquals("QR", updated.paymentMethod)
+        assertEquals("TXN-20", updated.transactionId)
+        assertEquals(4000L, updated.paidAt)
+    }
 }

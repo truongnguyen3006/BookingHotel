@@ -17,4 +17,22 @@ interface BookingDao {
 
     @Query("UPDATE bookings SET status = :status WHERE localId = :localId")
     suspend fun updateBookingStatus(localId: Long, status: String)
+
+    @Query(
+        """
+        UPDATE bookings
+        SET status = :status,
+            paymentMethod = :paymentMethod,
+            transactionId = :transactionId,
+            paidAt = :paidAt
+        WHERE localId = :localId
+        """
+    )
+    suspend fun updatePaymentDetails(
+        localId: Long,
+        status: String,
+        paymentMethod: String?,
+        transactionId: String?,
+        paidAt: Long?
+    )
 }

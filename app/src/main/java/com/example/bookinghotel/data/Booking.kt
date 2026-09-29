@@ -9,5 +9,12 @@ data class Booking(
     val pricePerNight: Double,
     val totalPrice: Double,
     val status: String,
-    val createdAt: Long
+    val createdAt: Long,
+    val checkInDate: Long = 0L,
+    val checkOutDate: Long = 0L,
+    val guests: Int = 1,
+    val nights: Int = 1,
+    val paymentMethod: String? = null,
+    val transactionId: String? = null,
+    val paidAt: Long? = null
 )

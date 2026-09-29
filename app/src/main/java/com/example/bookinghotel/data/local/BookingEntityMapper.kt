@@ -12,7 +12,14 @@ fun BookingEntity.toDomain(): Booking {
         pricePerNight = pricePerNight,
         totalPrice = totalPrice,
         status = status,
-        createdAt = createdAt
+        createdAt = createdAt,
+        checkInDate = checkInDate,
+        checkOutDate = checkOutDate,
+        guests = guests,
+        nights = nights,
+        paymentMethod = paymentMethod,
+        transactionId = transactionId,
+        paidAt = paidAt
     )
 }
 
@@ -26,6 +33,13 @@ fun Booking.toEntity(): BookingEntity {
         pricePerNight = pricePerNight,
         totalPrice = totalPrice,
         status = status,
-        createdAt = createdAt
+        createdAt = createdAt,
+        checkInDate = checkInDate,
+        checkOutDate = checkOutDate,
+        guests = guests,
+        nights = nights,
+        paymentMethod = paymentMethod,
+        transactionId = transactionId,
+        paidAt = paidAt
     )
 }

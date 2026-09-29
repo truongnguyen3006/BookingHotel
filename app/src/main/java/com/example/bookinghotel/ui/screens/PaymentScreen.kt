@@ -8,11 +8,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -21,7 +28,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -30,16 +36,20 @@ import com.example.bookinghotel.data.PaymentMethod
 import com.example.bookinghotel.ui.BookingViewModel
 import com.example.bookinghotel.ui.PaymentUiState
 import com.example.bookinghotel.ui.Screen
+import com.example.bookinghotel.ui.toBookingStatusLabel
+import com.example.bookinghotel.ui.toCurrencyLabel
+import com.example.bookinghotel.ui.toDateTimeLabel
 
 @Composable
 fun PaymentScreen(
     viewModel: BookingViewModel,
     navController: NavController
 ) {
-    val booking = viewModel.lastBooking.collectAsState().value
-    val paymentState = viewModel.paymentState.collectAsState().value
+    val booking by viewModel.lastBooking.collectAsState()
+    val paymentState by viewModel.paymentState.collectAsState()
     var selectedMethod by remember { mutableStateOf(PaymentMethod.CARD) }
     var simulateFailure by remember { mutableStateOf(false) }
+    var showConfirmDialog by remember { mutableStateOf(false) }
 
     if (booking == null) {
         Column(
@@ -58,89 +68,147 @@ fun PaymentScreen(
         return
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        Text(
-            text = "Thanh toán booking #${booking.bookingId}",
-            fontWeight = FontWeight.Bold
-        )
-        Text("Tổng tiền: \$${booking.totalPrice}")
-        Text("Trạng thái hiện tại: ${booking.status}")
+    val currentBooking = booking!!
+    val isProcessing = paymentState is PaymentUiState.Loading
 
-        Text("Phương thức thanh toán", fontWeight = FontWeight.Bold)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            FilterChip(
-                selected = selectedMethod == PaymentMethod.CARD,
-                onClick = { selectedMethod = PaymentMethod.CARD },
-                label = { Text("Thẻ") }
-            )
-            FilterChip(
-                selected = selectedMethod == PaymentMethod.QR,
-                onClick = { selectedMethod = PaymentMethod.QR },
-                label = { Text("QR") }
-            )
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Mô phỏng thanh toán thất bại")
-                Text(
-                    text = "Chỉ dùng để test luồng FAILED → Retry",
-                    color = Color.Gray
-                )
-            }
-            Switch(
-                checked = simulateFailure,
-                onCheckedChange = { simulateFailure = it },
-                modifier = Modifier.testTag("simulate_failure_switch")
-            )
-        }
-
-        when (val state = paymentState) {
-            PaymentUiState.Idle -> {
+    if (showConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { if (!isProcessing) showConfirmDialog = false },
+            title = { Text("Xác nhận thanh toán") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Booking #${currentBooking.bookingId}")
+                    Text("Phương thức: ${if (selectedMethod == PaymentMethod.CARD) "Thẻ" else "QR"}")
+                    Text("Số tiền: ${currentBooking.totalPrice.toCurrencyLabel()}", fontWeight = FontWeight.Bold)
+                    Text("Mỗi lần bấm thanh toán được bảo vệ bằng idempotency key để tránh ghi nhận trùng giao dịch.")
+                }
+            },
+            confirmButton = {
                 Button(
                     onClick = {
+                        showConfirmDialog = false
                         viewModel.payBooking(
                             method = selectedMethod,
                             simulateFailure = simulateFailure
                         )
                     },
+                    enabled = !isProcessing,
+                    modifier = Modifier.testTag("confirm_payment_button")
+                ) {
+                    Text("Thanh toán")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showConfirmDialog = false },
+                    enabled = !isProcessing
+                ) {
+                    Text("Hủy")
+                }
+            }
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text("Booking #${currentBooking.bookingId}", fontWeight = FontWeight.Bold)
+                Text("Số tiền cần thanh toán")
+                Text(
+                    currentBooking.totalPrice.toCurrencyLabel(),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+                Text("Trạng thái: ${currentBooking.status.toBookingStatusLabel()}")
+            }
+        }
+
+        Text("Phương thức thanh toán", fontWeight = FontWeight.Bold)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            FilterChip(
+                selected = selectedMethod == PaymentMethod.CARD,
+                onClick = { if (!isProcessing) selectedMethod = PaymentMethod.CARD },
+                label = { Text("Thẻ") },
+                enabled = !isProcessing
+            )
+            FilterChip(
+                selected = selectedMethod == PaymentMethod.QR,
+                onClick = { if (!isProcessing) selectedMethod = PaymentMethod.QR },
+                label = { Text("QR") },
+                enabled = !isProcessing
+            )
+        }
+
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Chế độ demo lỗi thanh toán", fontWeight = FontWeight.Medium)
+                    Text(
+                        text = "Bật để kiểm thử FAILED → Retry. Không phải cổng thanh toán thật.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = simulateFailure,
+                    onCheckedChange = { simulateFailure = it },
+                    enabled = !isProcessing,
+                    modifier = Modifier.testTag("simulate_failure_switch")
+                )
+            }
+        }
+
+        when (val state = paymentState) {
+            PaymentUiState.Idle -> {
+                Button(
+                    onClick = { showConfirmDialog = true },
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("payment_submit_button")
                 ) {
-                    Text("Thanh toán ngay")
+                    Text("Thanh toán ${currentBooking.totalPrice.toCurrencyLabel()}")
                 }
             }
 
             PaymentUiState.Loading -> {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    CircularProgressIndicator()
+                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator()
+                        Column {
+                            Text("Đang xử lý giao dịch", fontWeight = FontWeight.Bold)
+                            Text("Vui lòng không đóng ứng dụng hoặc bấm thanh toán nhiều lần.")
+                        }
+                    }
                 }
-                Text("Đang xử lý thanh toán...")
             }
 
             is PaymentUiState.Success -> {
-                Text(
-                    text = "Thanh toán thành công",
-                    color = Color(0xFF2E7D32),
-                    fontWeight = FontWeight.Bold
+                PaymentReceipt(
+                    method = state.result.method,
+                    transactionId = state.result.transactionId,
+                    paidAt = state.result.paidAt,
+                    message = state.result.message
                 )
-                state.result.transactionId?.let {
-                    Text("Mã giao dịch: $it")
-                }
-                Text(state.result.message)
                 Button(
                     onClick = { navController.navigate(Screen.History.route) },
                     modifier = Modifier
@@ -149,7 +217,7 @@ fun PaymentScreen(
                 ) {
                     Text("Xem lịch sử đặt phòng")
                 }
-                Button(
+                OutlinedButton(
                     onClick = { navController.popBackStack(Screen.List.route, false) },
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -158,19 +226,22 @@ fun PaymentScreen(
             }
 
             is PaymentUiState.Failed -> {
-                Text(
-                    text = "Thanh toán thất bại",
-                    color = Color.Red,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(state.result.message)
-                Button(
-                    onClick = {
-                        viewModel.payBooking(
-                            method = selectedMethod,
-                            simulateFailure = simulateFailure
+                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "Thanh toán thất bại",
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold
                         )
-                    },
+                        Text(state.result.message)
+                        Text("Bạn có thể thử lại. Lần retry sẽ sử dụng một payment attempt mới.")
+                    }
+                }
+                Button(
+                    onClick = { showConfirmDialog = true },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Thử thanh toán lại")
@@ -178,7 +249,20 @@ fun PaymentScreen(
             }
 
             is PaymentUiState.Error -> {
-                Text(text = state.message, color = Color.Red)
+                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "Không thể xác nhận kết quả giao dịch",
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(state.message)
+                        Text("Nút Thử lại giữ nguyên idempotency key để server không tạo giao dịch trùng nếu request trước đã được xử lý.")
+                    }
+                }
                 Button(
                     onClick = {
                         viewModel.payBooking(
@@ -188,9 +272,35 @@ fun PaymentScreen(
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Thử lại")
+                    Text("Thử lại an toàn")
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun PaymentReceipt(
+    method: PaymentMethod,
+    transactionId: String?,
+    paidAt: Long?,
+    message: String
+) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Text(
+                text = "Thanh toán thành công",
+                color = MaterialTheme.colorScheme.secondary,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleLarge
+            )
+            Text("Phương thức: ${if (method == PaymentMethod.CARD) "Thẻ" else "QR"}")
+            Text("Mã giao dịch: ${transactionId ?: "--"}")
+            Text("Thời gian: ${paidAt?.toDateTimeLabel() ?: "--"}")
+            Text(message)
         }
     }
 }

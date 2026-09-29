@@ -5,5 +5,6 @@ data class PaymentResponseDto(
     val status: String,
     val method: String,
     val transactionId: String?,
-    val message: String
+    val message: String,
+    val paidAt: Long? = null
 )
