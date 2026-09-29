@@ -22,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -82,7 +83,9 @@ fun RoomDetailsScreen(viewModel: BookingViewModel, navController: NavController)
                 },
                 label = { Text("Số lượng phòng") },
                 isError = validationError.isNotEmpty(),
-                modifier = Modifier.align(Alignment.CenterHorizontally),
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .testTag("quantity_input"),
                 enabled = bookingState !is BookingUiState.Loading
             )
 
@@ -120,7 +123,9 @@ fun RoomDetailsScreen(viewModel: BookingViewModel, navController: NavController)
                     },
                     enabled = validationError.isEmpty() &&
                         bookingState !is BookingUiState.Loading,
-                    modifier = Modifier.width(150.dp)
+                    modifier = Modifier
+                        .width(150.dp)
+                        .testTag("book_button")
                 ) {
                     Text("Đặt phòng")
                 }

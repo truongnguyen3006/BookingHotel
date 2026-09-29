@@ -22,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -98,7 +99,8 @@ fun PaymentScreen(
             }
             Switch(
                 checked = simulateFailure,
-                onCheckedChange = { simulateFailure = it }
+                onCheckedChange = { simulateFailure = it },
+                modifier = Modifier.testTag("simulate_failure_switch")
             )
         }
 
@@ -111,7 +113,9 @@ fun PaymentScreen(
                             simulateFailure = simulateFailure
                         )
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("payment_submit_button")
                 ) {
                     Text("Thanh toán ngay")
                 }
@@ -139,7 +143,9 @@ fun PaymentScreen(
                 Text(state.result.message)
                 Button(
                     onClick = { navController.navigate(Screen.History.route) },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("payment_history_button")
                 ) {
                     Text("Xem lịch sử đặt phòng")
                 }
