@@ -20,6 +20,7 @@ import com.example.bookinghotel.ui.BookingViewModel
 import com.example.bookinghotel.ui.Screen
 import com.example.bookinghotel.ui.screens.BookingHistoryScreen
 import com.example.bookinghotel.ui.screens.BookingSummaryScreen
+import com.example.bookinghotel.ui.screens.PaymentScreen
 import com.example.bookinghotel.ui.screens.RoomDetailsScreen
 import com.example.bookinghotel.ui.screens.RoomListScreen
 
@@ -66,6 +67,9 @@ fun BookingHotelApp(
             }
             composable(Screen.History.route) {
                 BookingHistoryScreen(viewModel)
+            }
+            composable(Screen.Payment.route) {
+                PaymentScreen(viewModel, navController)
             }
         }
     }

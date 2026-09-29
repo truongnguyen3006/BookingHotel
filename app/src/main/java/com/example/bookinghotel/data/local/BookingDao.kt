@@ -14,4 +14,7 @@ interface BookingDao {
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertBooking(booking: BookingEntity): Long
+
+    @Query("UPDATE bookings SET status = :status WHERE localId = :localId")
+    suspend fun updateBookingStatus(localId: Long, status: String)
 }

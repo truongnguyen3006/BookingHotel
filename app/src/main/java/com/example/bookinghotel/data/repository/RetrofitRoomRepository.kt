@@ -1,12 +1,15 @@
 package com.example.bookinghotel.data.repository
 
 import com.example.bookinghotel.data.Booking
+import com.example.bookinghotel.data.PaymentMethod
+import com.example.bookinghotel.data.PaymentResult
 import com.example.bookinghotel.data.Room
 import com.example.bookinghotel.data.local.BookingDao
 import com.example.bookinghotel.data.local.toDomain
 import com.example.bookinghotel.data.local.toEntity
 import com.example.bookinghotel.data.remote.HotelApiService
 import com.example.bookinghotel.data.remote.dto.BookingRequestDto
+import com.example.bookinghotel.data.remote.dto.PaymentRequestDto
 import com.example.bookinghotel.data.remote.toDomain
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
@@ -69,6 +72,36 @@ class RetrofitRoomRepository @Inject constructor(
 
             val localId = bookingDao.insertBooking(booking.toEntity())
             booking.copy(localId = localId)
+        }
+    }
+
+    override suspend fun payBooking(
+        booking: Booking,
+        method: PaymentMethod,
+        simulateFailure: Boolean
+    ): Result<PaymentResult> {
+        return runCatching {
+            val response = api.payBooking(
+                bookingId = booking.bookingId,
+                request = PaymentRequestDto(
+                    method = method.name,
+                    simulateFailure = simulateFailure
+                )
+            )
+
+            bookingDao.updateBookingStatus(
+                localId = booking.localId,
+                status = response.status
+            )
+
+            PaymentResult(
+                bookingId = response.bookingId,
+                status = response.status,
+                method = runCatching { PaymentMethod.valueOf(response.method) }
+                    .getOrDefault(method),
+                transactionId = response.transactionId,
+                message = response.message
+            )
         }
     }
 }

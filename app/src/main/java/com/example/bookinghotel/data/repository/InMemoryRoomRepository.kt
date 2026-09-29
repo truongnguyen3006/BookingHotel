@@ -2,6 +2,8 @@ package com.example.bookinghotel.data.repository
 
 import com.example.bookinghotel.R
 import com.example.bookinghotel.data.Booking
+import com.example.bookinghotel.data.PaymentMethod
+import com.example.bookinghotel.data.PaymentResult
 import com.example.bookinghotel.data.Room
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -58,6 +60,35 @@ class InMemoryRoomRepository : RoomRepository {
 
         _bookingHistory.value = listOf(booking) + _bookingHistory.value
         return Result.success(booking)
+    }
+
+    override suspend fun payBooking(
+        booking: Booking,
+        method: PaymentMethod,
+        simulateFailure: Boolean
+    ): Result<PaymentResult> {
+        val currentBooking = _bookingHistory.value.firstOrNull { it.localId == booking.localId }
+            ?: return Result.failure(IllegalArgumentException("Booking not found"))
+
+        val status = if (simulateFailure) "FAILED" else "SUCCESS"
+        val updatedBooking = currentBooking.copy(status = status)
+        _bookingHistory.value = _bookingHistory.value.map { item ->
+            if (item.localId == booking.localId) updatedBooking else item
+        }
+
+        return Result.success(
+            PaymentResult(
+                bookingId = booking.bookingId,
+                status = status,
+                method = method,
+                transactionId = if (status == "SUCCESS") "FAKE-${booking.bookingId}" else null,
+                message = if (status == "SUCCESS") {
+                    "Payment completed"
+                } else {
+                    "Payment failed (simulated)"
+                }
+            )
+        )
     }
 
     private fun createInitialRooms(): List<Room> {

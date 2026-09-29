@@ -6,9 +6,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -41,11 +41,29 @@ fun BookingSummaryScreen(viewModel: BookingViewModel, navController: NavControll
             Text(text = "Tổng tiền: \$${booking?.totalPrice ?: room.pricePerNight * quantity}")
             booking?.let { Text(text = "Trạng thái: ${it.status}") }
             Spacer(modifier = Modifier.height(16.dp))
-            Text("Phòng đã được đặt. Bạn có 3 giờ để thanh toán!!.")
+            Text("Phòng đã được đặt. Bạn có 3 giờ để thanh toán.")
             Spacer(modifier = Modifier.height(16.dp))
+
+            if (booking != null && booking.status != "SUCCESS") {
+                Button(
+                    onClick = {
+                        viewModel.preparePayment()
+                        navController.navigate(Screen.Payment.route)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.CenterHorizontally)
+                ) {
+                    Text("Thanh toán ngay")
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+            }
+
             Button(
                 onClick = { navController.popBackStack(Screen.List.route, inclusive = false) },
-                modifier = Modifier.align(Alignment.CenterHorizontally)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.CenterHorizontally)
             ) {
                 Text("Quay về màn hình chính")
             }

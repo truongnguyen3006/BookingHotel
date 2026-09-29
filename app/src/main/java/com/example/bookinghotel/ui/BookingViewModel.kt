@@ -3,6 +3,8 @@ package com.example.bookinghotel.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.bookinghotel.data.Booking
+import com.example.bookinghotel.data.PaymentMethod
+import com.example.bookinghotel.data.PaymentResult
 import com.example.bookinghotel.data.Room
 import com.example.bookinghotel.data.repository.RoomRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,6 +23,14 @@ sealed interface BookingUiState {
     data object Loading : BookingUiState
     data object Success : BookingUiState
     data class Error(val message: String) : BookingUiState
+}
+
+sealed interface PaymentUiState {
+    data object Idle : PaymentUiState
+    data object Loading : PaymentUiState
+    data class Success(val result: PaymentResult) : PaymentUiState
+    data class Failed(val result: PaymentResult) : PaymentUiState
+    data class Error(val message: String) : PaymentUiState
 }
 
 @HiltViewModel
@@ -54,6 +64,9 @@ class BookingViewModel @Inject constructor(
 
     private val _bookingState = MutableStateFlow<BookingUiState>(BookingUiState.Idle)
     val bookingState: StateFlow<BookingUiState> = _bookingState.asStateFlow()
+
+    private val _paymentState = MutableStateFlow<PaymentUiState>(PaymentUiState.Idle)
+    val paymentState: StateFlow<PaymentUiState> = _paymentState.asStateFlow()
 
     init {
         loadRooms()
@@ -94,12 +107,49 @@ class BookingViewModel @Inject constructor(
                     _selectedRoom.value = roomRepository.getRoomById(booking.roomId)
                     _quantity.value = booking.quantity
                     _lastBooking.value = booking
+                    _paymentState.value = PaymentUiState.Idle
                     _bookingState.value = BookingUiState.Success
                 }
                 .onFailure { throwable ->
                     _bookingState.value = BookingUiState.Error(throwable.toUserMessage())
                 }
         }
+    }
+
+    fun payBooking(
+        method: PaymentMethod,
+        simulateFailure: Boolean
+    ) {
+        val booking = _lastBooking.value
+        if (booking == null) {
+            _paymentState.value = PaymentUiState.Error("Không tìm thấy booking để thanh toán.")
+            return
+        }
+
+        viewModelScope.launch {
+            _paymentState.value = PaymentUiState.Loading
+
+            roomRepository.payBooking(
+                booking = booking,
+                method = method,
+                simulateFailure = simulateFailure
+            )
+                .onSuccess { result ->
+                    _lastBooking.value = booking.copy(status = result.status)
+                    _paymentState.value = if (result.status == "SUCCESS") {
+                        PaymentUiState.Success(result)
+                    } else {
+                        PaymentUiState.Failed(result)
+                    }
+                }
+                .onFailure { throwable ->
+                    _paymentState.value = PaymentUiState.Error(throwable.toPaymentUserMessage())
+                }
+        }
+    }
+
+    fun preparePayment() {
+        _paymentState.value = PaymentUiState.Idle
     }
 
     fun consumeBookingSuccess() {
@@ -117,6 +167,18 @@ class BookingViewModel @Inject constructor(
                 else -> "Máy chủ trả về lỗi HTTP ${code()}."
             }
             else -> message ?: "Đã xảy ra lỗi. Vui lòng thử lại."
+        }
+    }
+
+    private fun Throwable.toPaymentUserMessage(): String {
+        return when (this) {
+            is IOException -> "Không thể kết nối tới máy chủ thanh toán. Hãy thử lại."
+            is HttpException -> when (code()) {
+                409 -> "Booking đã được thanh toán hoặc không còn ở trạng thái cho phép."
+                404 -> "Không tìm thấy booking trên máy chủ."
+                else -> "Thanh toán gặp lỗi HTTP ${code()}."
+            }
+            else -> message ?: "Thanh toán gặp lỗi. Vui lòng thử lại."
         }
     }
 }

@@ -140,6 +140,63 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  const paymentMatch = url.pathname.match(/^\/api\/bookings\/(\d+)\/payment$/);
+  if (req.method === "POST" && paymentMatch) {
+    try {
+      const bookingId = Number(paymentMatch[1]);
+      const booking = bookings.get(bookingId);
+
+      if (!booking) {
+        return sendJson(res, 404, { message: "Booking not found" });
+      }
+
+      if (booking.status === "SUCCESS") {
+        return sendJson(res, 409, { message: "Booking already paid" });
+      }
+
+      const body = await readJsonBody(req);
+      const method = String(body.method || "").toUpperCase();
+      const simulateFailure = body.simulateFailure === true;
+
+      if (!['CARD', 'QR'].includes(method)) {
+        return sendJson(res, 400, { message: "Unsupported payment method" });
+      }
+
+      if (simulateFailure) {
+        const failedBooking = {
+          ...booking,
+          status: "FAILED",
+        };
+        bookings.set(bookingId, failedBooking);
+
+        return sendJson(res, 200, {
+          bookingId,
+          status: "FAILED",
+          method,
+          transactionId: null,
+          message: "Payment was declined (simulated)",
+        });
+      }
+
+      const transactionId = `TXN-${bookingId}-${Date.now()}`;
+      const paidBooking = {
+        ...booking,
+        status: "SUCCESS",
+      };
+      bookings.set(bookingId, paidBooking);
+
+      return sendJson(res, 200, {
+        bookingId,
+        status: "SUCCESS",
+        method,
+        transactionId,
+        message: "Payment completed successfully",
+      });
+    } catch (error) {
+      return sendJson(res, 400, { message: "Invalid payment request" });
+    }
+  }
+
   const bookingMatch = url.pathname.match(/^\/api\/bookings\/(\d+)$/);
   if (req.method === "GET" && bookingMatch) {
     const bookingId = Number(bookingMatch[1]);
