@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">Booking Hotel</string>
+    <string name="room_style_1">Standard Room</string>
+    <string name="room_style_2">Deluxe Room</string>
+    <string name="room_style_3">Suite Room</string>
+    <string name="room_style_4">Executive Room</string>
+    <string name="room_style_5">Family Room</string>
+    <string name="choose_room">Choose Room</string>
+    <string name="see_detail">See Detail</string>
+    <string name="booking_room">Booking Room</string>
+</resources>
