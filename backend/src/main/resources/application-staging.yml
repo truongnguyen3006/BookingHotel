@@ -1,0 +1,15 @@
+spring:
+  config:
+    activate:
+      on-profile: staging
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX:10}
+      minimum-idle: ${DB_POOL_MIN:2}
+
+security:
+  jwt:
+    secret-base64: ${JWT_SECRET_B64}

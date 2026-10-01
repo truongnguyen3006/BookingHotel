@@ -1,4 +1,3 @@
-
 param(
     [Parameter(Mandatory=$true)][string]$AccessToken,
     [int]$RoomId = 1
@@ -34,5 +33,16 @@ $jobs = 1..2 | ForEach-Object {
     } -ArgumentList $uri, $headers, $body, $_
 }
 
-$jobs | Wait-Job | Receive-Job | Format-Table -AutoSize
+$results = $jobs | Wait-Job | Receive-Job
 $jobs | Remove-Job
+
+$results | Sort-Object Request | Format-Table -AutoSize
+
+$statuses = @($results | ForEach-Object { [int]$_.Status } | Sort-Object)
+if ($statuses.Count -eq 2 -and $statuses[0] -eq 201 -and $statuses[1] -eq 409) {
+    Write-Host "Concurrency protection PASS: exactly one request succeeded and one was rejected with 409." -ForegroundColor Green
+    exit 0
+}
+
+Write-Error "Concurrency protection FAILED. Expected statuses 201 and 409, got: $($statuses -join ', ')"
+exit 1

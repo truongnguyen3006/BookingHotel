@@ -1,0 +1,9 @@
+.gradle
+build
+.idea
+*.iml
+.env
+.git
+.gitignore
+README.md
+concurrency-test.ps1

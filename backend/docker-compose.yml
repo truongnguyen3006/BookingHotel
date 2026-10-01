@@ -4,10 +4,10 @@ services:
     container_name: booking-hotel-mysql
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: booking_hotel
-      MYSQL_USER: booking_app
-      MYSQL_PASSWORD: booking_app_password
-      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-booking_hotel}
+      MYSQL_USER: ${MYSQL_USER:-booking_app}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-booking_app_password}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
       TZ: UTC
     ports:
       - "3306:3306"
@@ -19,6 +19,27 @@ services:
       timeout: 5s
       retries: 20
       start_period: 15s
+
+  backend:
+    profiles: ["full"]
+    build:
+      context: .
+    container_name: booking-hotel-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
+      SERVER_PORT: 8080
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-booking_hotel}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      DB_USERNAME: ${MYSQL_USER:-booking_app}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-booking_app_password}
+      JWT_SECRET_B64: ${JWT_SECRET_B64:-Ym9va2luZy1ob3RlbC1kZXYtc2VjcmV0LWtleS1tdXN0LWJlLWF0LWxlYXN0LTMyLWJ5dGVz}
+      JWT_ACCESS_MINUTES: ${JWT_ACCESS_MINUTES:-30}
+      JWT_REFRESH_DAYS: ${JWT_REFRESH_DAYS:-14}
+    ports:
+      - "8080:8080"
 
 volumes:
   booking_hotel_mysql_data:
