@@ -1,5 +1,7 @@
 package com.example.bookinghotel.di
 
+import com.example.bookinghotel.data.repository.AuthRepository
+import com.example.bookinghotel.data.repository.RetrofitAuthRepository
 import com.example.bookinghotel.data.repository.RetrofitRoomRepository
 import com.example.bookinghotel.data.repository.RoomRepository
 import dagger.Binds
@@ -17,4 +19,10 @@ abstract class RepositoryModule {
     abstract fun bindRoomRepository(
         retrofitRoomRepository: RetrofitRoomRepository
     ): RoomRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAuthRepository(
+        retrofitAuthRepository: RetrofitAuthRepository
+    ): AuthRepository
 }

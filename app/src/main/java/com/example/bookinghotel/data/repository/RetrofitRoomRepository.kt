@@ -64,24 +64,54 @@ class RetrofitRoomRepository @Inject constructor(
             }.getOrNull()
         }
 
-        return runCatching {
-            val freshRooms = api.getRooms().map { it.toDomain() }
-            val syncedAt = System.currentTimeMillis()
-
-            roomCacheDao.replaceAll(
-                freshRooms.map { room -> room.toCacheEntity(syncedAt) }
-            )
-
-            _rooms.value = freshRooms
-            _roomDataSource.value = RoomDataSource.NETWORK
-            _lastRoomSyncAt.value = syncedAt
-        }.recoverCatching { throwable ->
+        return syncRoomsFromNetwork().recoverCatching { throwable ->
             if (_rooms.value.isNotEmpty()) {
                 // Cached content remains usable while the device/server is offline.
                 Unit
             } else {
                 throw throwable
             }
+        }
+    }
+
+    /**
+     * Performs a real remote refresh and always propagates network/server failures.
+     * WorkManager uses this method so failed sync attempts can be retried instead of
+     * being hidden by the offline cache fallback used by refreshRooms().
+     */
+    override suspend fun syncRoomsFromNetwork(): Result<Unit> = runCatching {
+        val freshRooms = api.getRooms().map { it.toDomain() }
+        val syncedAt = System.currentTimeMillis()
+
+        roomCacheDao.replaceAll(
+            freshRooms.map { room -> room.toCacheEntity(syncedAt) }
+        )
+
+        _rooms.value = freshRooms
+        _roomDataSource.value = RoomDataSource.NETWORK
+        _lastRoomSyncAt.value = syncedAt
+    }
+
+    override suspend fun refreshBookingHistory(): Result<Unit> = runCatching {
+        val responses = api.getBookings()
+        bookingDao.clearBookings()
+        responses.forEach { response ->
+            val room = response.room.toDomain()
+            val booking = Booking(
+                bookingId = response.bookingId,
+                roomId = room.id,
+                roomTypeKey = room.typeKey,
+                quantity = response.quantity,
+                pricePerNight = room.pricePerNight,
+                totalPrice = response.totalPrice,
+                status = response.status,
+                createdAt = response.createdAt.takeIf { it > 0L } ?: System.currentTimeMillis(),
+                checkInDate = response.checkInDate,
+                checkOutDate = response.checkOutDate,
+                guests = response.guests,
+                nights = response.nights
+            )
+            bookingDao.insertBooking(booking.toEntity())
         }
     }
 
@@ -142,7 +172,7 @@ class RetrofitRoomRepository @Inject constructor(
                 pricePerNight = updatedRoom.pricePerNight,
                 totalPrice = response.totalPrice,
                 status = response.status,
-                createdAt = System.currentTimeMillis(),
+                createdAt = response.createdAt.takeIf { it > 0L } ?: System.currentTimeMillis(),
                 checkInDate = response.checkInDate,
                 checkOutDate = response.checkOutDate,
                 guests = response.guests,

@@ -1,12 +1,17 @@
 package com.example.bookinghotel.di
 
 import com.example.bookinghotel.BuildConfig
+import com.example.bookinghotel.data.remote.AuthApiService
+import com.example.bookinghotel.data.remote.AuthInterceptor
 import com.example.bookinghotel.data.remote.HotelApiService
+import com.example.bookinghotel.data.remote.TokenAuthenticator
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import javax.inject.Named
 import javax.inject.Singleton
+import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
@@ -16,16 +21,45 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideRetrofit(): Retrofit {
-        return Retrofit.Builder()
-            .baseUrl(BuildConfig.API_BASE_URL)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-    }
+    @Named("auth")
+    fun provideAuthOkHttpClient(): OkHttpClient = OkHttpClient.Builder().build()
 
     @Provides
     @Singleton
-    fun provideHotelApiService(retrofit: Retrofit): HotelApiService {
-        return retrofit.create(HotelApiService::class.java)
-    }
+    @Named("auth")
+    fun provideAuthRetrofit(@Named("auth") client: OkHttpClient): Retrofit = Retrofit.Builder()
+        .baseUrl(BuildConfig.API_BASE_URL)
+        .client(client)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+
+    @Provides
+    @Singleton
+    fun provideAuthApiService(@Named("auth") retrofit: Retrofit): AuthApiService =
+        retrofit.create(AuthApiService::class.java)
+
+    @Provides
+    @Singleton
+    @Named("api")
+    fun provideApiOkHttpClient(
+        authInterceptor: AuthInterceptor,
+        tokenAuthenticator: TokenAuthenticator
+    ): OkHttpClient = OkHttpClient.Builder()
+        .addInterceptor(authInterceptor)
+        .authenticator(tokenAuthenticator)
+        .build()
+
+    @Provides
+    @Singleton
+    @Named("api")
+    fun provideApiRetrofit(@Named("api") client: OkHttpClient): Retrofit = Retrofit.Builder()
+        .baseUrl(BuildConfig.API_BASE_URL)
+        .client(client)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+
+    @Provides
+    @Singleton
+    fun provideHotelApiService(@Named("api") retrofit: Retrofit): HotelApiService =
+        retrofit.create(HotelApiService::class.java)
 }

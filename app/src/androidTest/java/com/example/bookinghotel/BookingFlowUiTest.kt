@@ -58,7 +58,7 @@ class BookingFlowUiTest {
         val viewModel = BookingViewModel(InMemoryRoomRepository())
         composeRule.setContent {
             BookingHotelTheme {
-                BookingHotelApp(viewModel = viewModel)
+                BookingHotelAuthenticatedContent(viewModel = viewModel)
             }
         }
     }

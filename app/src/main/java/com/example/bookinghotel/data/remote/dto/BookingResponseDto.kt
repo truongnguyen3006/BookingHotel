@@ -9,5 +9,6 @@ data class BookingResponseDto(
     val checkInDate: Long = 0L,
     val checkOutDate: Long = 0L,
     val guests: Int = 1,
-    val nights: Int = 1
+    val nights: Int = 1,
+    val createdAt: Long = 0L
 )

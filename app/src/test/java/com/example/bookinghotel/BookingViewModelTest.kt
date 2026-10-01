@@ -86,7 +86,7 @@ class BookingViewModelTest {
         )
 
         assertEquals(
-            "Không thể kết nối tới máy chủ. Hãy kiểm tra mock server và thử lại.",
+            "Không thể kết nối tới máy chủ. Vui lòng kiểm tra kết nối và thử lại.",
             viewModel.roomLoadError.value
         )
         assertEquals(false, viewModel.isLoadingRooms.value)
@@ -125,6 +125,8 @@ class BookingViewModelTest {
         override val bookingHistory: Flow<List<Booking>> = _history
 
         override suspend fun refreshRooms(): Result<Unit> = refreshResult
+        override suspend fun syncRoomsFromNetwork(): Result<Unit> = refreshResult
+        override suspend fun refreshBookingHistory(): Result<Unit> = Result.success(Unit)
 
         override fun getRoomById(roomId: Int): Room? = null
 

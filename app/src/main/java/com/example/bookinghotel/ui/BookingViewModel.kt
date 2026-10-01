@@ -1,5 +1,8 @@
 package com.example.bookinghotel.ui
 
+import com.example.bookinghotel.data.remote.toAppError
+import com.example.bookinghotel.data.remote.userMessage
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.bookinghotel.data.Booking
@@ -9,7 +12,6 @@ import com.example.bookinghotel.data.Room
 import com.example.bookinghotel.data.repository.RoomDataSource
 import com.example.bookinghotel.data.repository.RoomRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.io.IOException
 import java.util.Calendar
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -21,7 +23,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import retrofit2.HttpException
 
 sealed interface BookingUiState {
     data object Idle : BookingUiState
@@ -130,6 +131,15 @@ class BookingViewModel @Inject constructor(
                 }
 
             _isLoadingRooms.value = false
+        }
+    }
+
+    fun refreshBookingHistory() {
+        viewModelScope.launch {
+            roomRepository.refreshBookingHistory()
+                .onFailure { throwable ->
+                    _roomLoadError.value = throwable.toAppError().userMessage()
+                }
         }
     }
 
@@ -295,30 +305,9 @@ class BookingViewModel @Inject constructor(
             .coerceAtLeast(1)
     }
 
-    private fun Throwable.toUserMessage(): String {
-        return when (this) {
-            is IOException -> "Không thể kết nối tới máy chủ. Hãy kiểm tra mock server và thử lại."
-            is HttpException -> when (code()) {
-                400 -> "Thông tin đặt phòng chưa hợp lệ. Vui lòng kiểm tra lại ngày và số khách."
-                409 -> "Số phòng trên máy chủ vừa thay đổi. Vui lòng thử lại."
-                404 -> "Không tìm thấy dữ liệu yêu cầu trên máy chủ."
-                else -> "Máy chủ trả về lỗi HTTP ${code()}."
-            }
-            else -> message ?: "Đã xảy ra lỗi. Vui lòng thử lại."
-        }
-    }
+    private fun Throwable.toUserMessage(): String = toAppError().userMessage()
 
-    private fun Throwable.toPaymentUserMessage(): String {
-        return when (this) {
-            is IOException -> "Không thể kết nối tới máy chủ thanh toán. Hãy thử lại."
-            is HttpException -> when (code()) {
-                409 -> "Booking đã được thanh toán hoặc không còn ở trạng thái cho phép."
-                404 -> "Không tìm thấy booking trên máy chủ."
-                else -> "Thanh toán gặp lỗi HTTP ${code()}."
-            }
-            else -> message ?: "Thanh toán gặp lỗi. Vui lòng thử lại."
-        }
-    }
+    private fun Throwable.toPaymentUserMessage(): String = toAppError().userMessage()
 
     companion object {
         private const val DAY_MS = 24L * 60L * 60L * 1000L

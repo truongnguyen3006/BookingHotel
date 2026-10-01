@@ -21,6 +21,8 @@ interface RoomRepository {
     val lastRoomSyncAt: StateFlow<Long?>
 
     suspend fun refreshRooms(): Result<Unit>
+    suspend fun syncRoomsFromNetwork(): Result<Unit>
+    suspend fun refreshBookingHistory(): Result<Unit>
 
     fun getRoomById(roomId: Int): Room?
 

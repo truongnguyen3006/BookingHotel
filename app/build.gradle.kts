@@ -5,9 +5,37 @@ plugins {
     alias(libs.plugins.hilt.android)
 }
 
+fun apiBaseUrl(propertyName: String, environmentName: String, fallback: String): String {
+    val raw = providers.gradleProperty(propertyName)
+        .orElse(providers.environmentVariable(environmentName))
+        .orElse(fallback)
+        .get()
+        .trim()
+    return if (raw.endsWith("/")) raw else "$raw/"
+}
+
+fun quotedBuildConfig(value: String): String =
+    "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+
+val localApiBaseUrl = apiBaseUrl(
+    propertyName = "BOOKING_API_LOCAL_URL",
+    environmentName = "BOOKING_API_LOCAL_URL",
+    fallback = "http://10.0.2.2:8080/"
+)
+val stagingApiBaseUrl = apiBaseUrl(
+    propertyName = "BOOKING_API_STAGING_URL",
+    environmentName = "BOOKING_API_STAGING_URL",
+    fallback = "https://staging.booking-hotel.invalid/"
+)
+val productionApiBaseUrl = apiBaseUrl(
+    propertyName = "BOOKING_API_PROD_URL",
+    environmentName = "BOOKING_API_PROD_URL",
+    fallback = "https://api.booking-hotel.invalid/"
+)
+
 android {
     namespace = "com.example.bookinghotel"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.example.bookinghotel"
@@ -17,15 +45,30 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8080/\"")
         vectorDrawables {
             useSupportLibrary = true
         }
     }
 
     buildTypes {
+        debug {
+            buildConfigField("String", "API_BASE_URL", quotedBuildConfig(localApiBaseUrl))
+            buildConfigField("String", "ENVIRONMENT", quotedBuildConfig("local"))
+        }
+
+        create("staging") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".staging"
+            versionNameSuffix = "-staging"
+            matchingFallbacks += listOf("debug")
+            buildConfigField("String", "API_BASE_URL", quotedBuildConfig(stagingApiBaseUrl))
+            buildConfigField("String", "ENVIRONMENT", quotedBuildConfig("staging"))
+        }
+
         release {
             isMinifyEnabled = false
+            buildConfigField("String", "API_BASE_URL", quotedBuildConfig(productionApiBaseUrl))
+            buildConfigField("String", "ENVIRONMENT", quotedBuildConfig("production"))
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -76,7 +119,11 @@ dependencies {
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.work.runtime)
+    implementation(libs.androidx.hilt.work)
     kapt(libs.hilt.compiler)
+    kapt(libs.androidx.hilt.compiler)
     kapt(libs.androidx.room.compiler)
 
     testImplementation(libs.junit)

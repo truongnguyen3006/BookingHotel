@@ -36,6 +36,10 @@ class InMemoryRoomRepository : RoomRepository {
 
     override suspend fun refreshRooms(): Result<Unit> = Result.success(Unit)
 
+    override suspend fun syncRoomsFromNetwork(): Result<Unit> = Result.success(Unit)
+
+    override suspend fun refreshBookingHistory(): Result<Unit> = Result.success(Unit)
+
     override fun getRoomById(roomId: Int): Room? {
         return _rooms.value.firstOrNull { it.id == roomId }
     }

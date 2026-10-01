@@ -9,3 +9,17 @@ local.properties
 .externalNativeBuild/
 .cxx/
 node_modules/
+
+# Backend local environment
+.env
+backend/.env
+
+# Secrets / signing material
+*.jks
+*.keystore
+secrets.properties
+.env
+**/.env
+
+# IDE / local generated config
+*.log

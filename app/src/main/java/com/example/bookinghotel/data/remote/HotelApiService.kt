@@ -15,6 +15,9 @@ interface HotelApiService {
     @GET("api/rooms")
     suspend fun getRooms(): List<RoomDto>
 
+    @GET("api/bookings")
+    suspend fun getBookings(): List<BookingResponseDto>
+
     @POST("api/bookings")
     suspend fun createBooking(
         @Body request: BookingRequestDto

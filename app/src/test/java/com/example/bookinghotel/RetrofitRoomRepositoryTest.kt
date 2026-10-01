@@ -87,6 +87,34 @@ class RetrofitRoomRepositoryTest {
     }
 
     @Test
+    fun syncRoomsFromNetwork_networkFailure_propagatesFailureForWorkManagerRetry() = runTest {
+        val api = FakeHotelApiService().apply {
+            roomsFailure = IOException("offline")
+        }
+        val cacheDao = FakeRoomCacheDao(
+            initialRooms = listOf(
+                RoomCacheEntity(
+                    id = 1,
+                    imageKey = "standard_room",
+                    typeKey = "standard",
+                    pricePerNight = 50.0,
+                    amenities = listOf("Wi-Fi"),
+                    availableRooms = 3,
+                    lastUpdatedAt = 1234L
+                )
+            )
+        )
+        val repository = RetrofitRoomRepository(api, FakeBookingDao(), cacheDao)
+        repository.refreshRooms() // publishes cache and hides the remote failure for foreground UX
+
+        val result = repository.syncRoomsFromNetwork()
+
+        assertTrue(result.isFailure)
+        assertEquals(3, repository.rooms.value.first().availableRooms)
+        assertEquals(RoomDataSource.CACHE, repository.roomDataSource.value)
+    }
+
+    @Test
     fun bookRoom_updatesRemoteInventoryAndPersistsBookingAndCache() = runTest {
         val api = FakeHotelApiService()
         val dao = FakeBookingDao(nextInsertedId = 42L)
@@ -204,6 +232,8 @@ class RetrofitRoomRepositoryTest {
             return roomsResponse
         }
 
+        override suspend fun getBookings(): List<BookingResponseDto> = emptyList()
+
         override suspend fun createBooking(request: BookingRequestDto): BookingResponseDto {
             createBookingCalls++
             lastBookingRequest = request
@@ -229,6 +259,10 @@ class RetrofitRoomRepositoryTest {
         var lastUpdatedStatus: String? = null
 
         override fun observeBookings(): Flow<List<BookingEntity>> = bookings
+
+        override suspend fun clearBookings() {
+            bookings.value = emptyList()
+        }
 
         override suspend fun insertBooking(booking: BookingEntity): Long {
             lastInserted = booking
