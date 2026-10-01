@@ -30,8 +30,9 @@ class BackgroundSyncWorker @AssistedInject constructor(
 
         // Booking history is user-specific. Public room inventory can still sync
         // when no user is signed in.
-        val signedIn = authRepository.session.first() != null
-        if (signedIn) {
+        val session = authRepository.session.first()
+        val shouldSyncUserHistory = session != null && !session.user.role.equals("ADMIN", ignoreCase = true)
+        if (shouldSyncUserHistory) {
             val historySync = roomRepository.refreshBookingHistory()
             if (historySync.isFailure) {
                 return resultForFailure(historySync.exceptionOrNull())
@@ -42,7 +43,7 @@ class BackgroundSyncWorker @AssistedInject constructor(
             workDataOf(
                 KEY_ENVIRONMENT to BuildConfig.ENVIRONMENT,
                 KEY_SYNCED_AT to System.currentTimeMillis(),
-                KEY_HISTORY_SYNCED to signedIn
+                KEY_HISTORY_SYNCED to shouldSyncUserHistory
             )
         )
     }

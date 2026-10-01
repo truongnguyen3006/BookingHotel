@@ -53,6 +53,7 @@ public class RoomEntity {
     public String getImageKey() { return imageKey; }
     public String getTypeKey() { return typeKey; }
     public BigDecimal getPricePerNight() { return pricePerNight; }
+    public void setPricePerNight(BigDecimal pricePerNight) { this.pricePerNight = pricePerNight; }
     public Set<String> getAmenities() { return amenities; }
     public int getAvailableRooms() { return availableRooms; }
     public void setAvailableRooms(int availableRooms) { this.availableRooms = availableRooms; }

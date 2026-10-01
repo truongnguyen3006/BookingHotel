@@ -37,3 +37,11 @@ security:
   jwt:
     access-token-minutes: ${JWT_ACCESS_MINUTES:30}
     refresh-token-days: ${JWT_REFRESH_DAYS:14}
+
+app:
+  admin:
+    bootstrap:
+      enabled: ${ADMIN_BOOTSTRAP_ENABLED:false}
+      email: ${ADMIN_EMAIL:}
+      password: ${ADMIN_PASSWORD:}
+      display-name: ${ADMIN_DISPLAY_NAME:Hotel Admin}

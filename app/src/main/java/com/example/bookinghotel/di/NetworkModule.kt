@@ -1,6 +1,7 @@
 package com.example.bookinghotel.di
 
 import com.example.bookinghotel.BuildConfig
+import com.example.bookinghotel.data.remote.AdminApiService
 import com.example.bookinghotel.data.remote.AuthApiService
 import com.example.bookinghotel.data.remote.AuthInterceptor
 import com.example.bookinghotel.data.remote.HotelApiService
@@ -62,4 +63,9 @@ object NetworkModule {
     @Singleton
     fun provideHotelApiService(@Named("api") retrofit: Retrofit): HotelApiService =
         retrofit.create(HotelApiService::class.java)
+
+    @Provides
+    @Singleton
+    fun provideAdminApiService(@Named("api") retrofit: Retrofit): AdminApiService =
+        retrofit.create(AdminApiService::class.java)
 }

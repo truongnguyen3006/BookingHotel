@@ -1,21 +1,10 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# BookingHotel release rules.
+# Keep Retrofit/Gson DTO field names because Gson serializes/deserializes them reflectively.
+-keep class com.example.bookinghotel.data.remote.dto.** { *; }
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Retrofit uses generic signatures and runtime annotations to resolve service methods.
+-keepattributes Signature
+-keepattributes *Annotation*
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
-
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Preserve useful source/line information for production stack traces and R8 mapping.
+-keepattributes SourceFile,LineNumberTable

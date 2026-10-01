@@ -25,6 +25,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.bookinghotel.data.auth.AuthSession
+import com.example.bookinghotel.ui.AdminScreen
+import com.example.bookinghotel.ui.AdminViewModel
 import com.example.bookinghotel.ui.AuthViewModel
 import com.example.bookinghotel.ui.BookingViewModel
 import com.example.bookinghotel.ui.Screen
@@ -35,28 +37,53 @@ import com.example.bookinghotel.ui.screens.PaymentScreen
 import com.example.bookinghotel.ui.screens.ProfileScreen
 import com.example.bookinghotel.ui.screens.RoomDetailsScreen
 import com.example.bookinghotel.ui.screens.RoomListScreen
+import com.example.bookinghotel.ui.screens.admin.AdminBookingsScreen
+import com.example.bookinghotel.ui.screens.admin.AdminDashboardScreen
+import com.example.bookinghotel.ui.screens.admin.AdminRoomsScreen
 
 @Composable
 fun BookingHotelApp(
     modifier: Modifier = Modifier,
-    viewModel: BookingViewModel = hiltViewModel(),
     authViewModel: AuthViewModel = hiltViewModel()
 ) {
     val session by authViewModel.session.collectAsState()
-    if (session == null) {
+    val currentSession = session
+    if (currentSession == null) {
         AuthScreen(authViewModel)
         return
     }
 
-    LaunchedEffect(session!!.user.id) {
+    if (currentSession.user.role.equals("ADMIN", ignoreCase = true)) {
+        AdminBookingHotelAuthenticatedContent(
+            modifier = modifier,
+            session = currentSession,
+            onLogout = authViewModel::logout
+        )
+    } else {
+        UserBookingHotelEntry(
+            modifier = modifier,
+            session = currentSession,
+            onLogout = authViewModel::logout
+        )
+    }
+}
+
+@Composable
+private fun UserBookingHotelEntry(
+    modifier: Modifier,
+    session: AuthSession,
+    onLogout: () -> Unit,
+    viewModel: BookingViewModel = hiltViewModel()
+) {
+    LaunchedEffect(session.user.id) {
         viewModel.refreshBookingHistory()
     }
 
     BookingHotelAuthenticatedContent(
         modifier = modifier,
         viewModel = viewModel,
-        session = session!!,
-        onLogout = authViewModel::logout
+        session = session,
+        onLogout = onLogout
     )
 }
 
@@ -114,6 +141,80 @@ fun BookingHotelAuthenticatedContent(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AdminBookingHotelAuthenticatedContent(
+    modifier: Modifier = Modifier,
+    session: AuthSession,
+    onLogout: () -> Unit,
+    viewModel: AdminViewModel = hiltViewModel()
+) {
+    val navController = rememberNavController()
+    val state by viewModel.state.collectAsState()
+    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+    val canNavigateBack = currentRoute != null && currentRoute != AdminScreen.Dashboard.route
+
+    Scaffold(
+        modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text(adminRouteTitle(currentRoute), fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    if (canNavigateBack) {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+                        }
+                    }
+                },
+                actions = {
+                    if (currentRoute == AdminScreen.Dashboard.route) {
+                        IconButton(onClick = { navController.navigate(AdminScreen.Profile.route) }) {
+                            Icon(Icons.Default.AccountCircle, contentDescription = "Tài khoản admin")
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                )
+            )
+        }
+    ) { innerPadding ->
+        NavHost(
+            navController = navController,
+            startDestination = AdminScreen.Dashboard.route,
+            modifier = Modifier.fillMaxSize().padding(innerPadding)
+        ) {
+            composable(AdminScreen.Dashboard.route) {
+                AdminDashboardScreen(
+                    state = state,
+                    onRefresh = viewModel::refreshDashboard,
+                    onOpenRooms = { navController.navigate(AdminScreen.Rooms.route) },
+                    onOpenBookings = { navController.navigate(AdminScreen.Bookings.route) }
+                )
+            }
+            composable(AdminScreen.Rooms.route) {
+                AdminRoomsScreen(
+                    state = state,
+                    onRefresh = viewModel::refreshRooms,
+                    onUpdateRoom = viewModel::updateRoom,
+                    onClearMessage = viewModel::clearMessage
+                )
+            }
+            composable(AdminScreen.Bookings.route) {
+                AdminBookingsScreen(
+                    state = state,
+                    onRefresh = viewModel::refreshBookings
+                )
+            }
+            composable(AdminScreen.Profile.route) {
+                ProfileScreen(session, onLogout)
+            }
+        }
+    }
+}
+
 private fun routeTitle(route: String?): String = when (route) {
     Screen.Detail.route -> "Chi tiết phòng"
     Screen.Summary.route -> "Xác nhận đặt phòng"
@@ -121,6 +222,13 @@ private fun routeTitle(route: String?): String = when (route) {
     Screen.Payment.route -> "Thanh toán"
     Screen.Profile.route -> "Tài khoản"
     else -> "Booking Hotel"
+}
+
+private fun adminRouteTitle(route: String?): String = when (route) {
+    AdminScreen.Rooms.route -> "Quản lý phòng"
+    AdminScreen.Bookings.route -> "Booking & Payment"
+    AdminScreen.Profile.route -> "Tài khoản admin"
+    else -> "Admin Dashboard"
 }
 
 private fun demoSession() = AuthSession(

@@ -55,4 +55,5 @@ public class UserEntity {
     public Role getRole() { return role; }
     public boolean isEnabled() { return enabled; }
     public Instant getCreatedAt() { return createdAt; }
+    public void promoteToAdmin() { this.role = Role.ADMIN; }
 }
