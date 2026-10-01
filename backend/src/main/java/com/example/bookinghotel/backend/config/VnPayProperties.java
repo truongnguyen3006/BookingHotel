@@ -20,10 +20,10 @@ public class VnPayProperties {
             @Value("${vnpay.expire-minutes:15}") int expireMinutes,
             @Value("${vnpay.vnd-per-price-unit:25000}") long vndPerPriceUnit
     ) {
-        this.tmnCode = tmnCode == null ? "" : tmnCode.trim();
-        this.hashSecret = hashSecret == null ? "" : hashSecret.trim();
-        this.payUrl = payUrl == null ? "" : payUrl.trim();
-        this.returnUrl = returnUrl == null ? "" : returnUrl.trim();
+        this.tmnCode = clean(tmnCode);
+        this.hashSecret = clean(hashSecret);
+        this.payUrl = clean(payUrl);
+        this.returnUrl = clean(returnUrl);
         this.expireMinutes = expireMinutes;
         this.vndPerPriceUnit = vndPerPriceUnit;
     }
@@ -36,6 +36,22 @@ public class VnPayProperties {
     public long getVndPerPriceUnit() { return vndPerPriceUnit; }
 
     public boolean isConfigured() {
-        return !tmnCode.isBlank() && !hashSecret.isBlank() && !payUrl.isBlank() && !returnUrl.isBlank();
+        return tmnCode.matches("[A-Za-z0-9]{8}")
+                && !hashSecret.isBlank()
+                && !payUrl.isBlank()
+                && !returnUrl.isBlank();
+    }
+
+    private static String clean(String raw) {
+        if (raw == null) return "";
+        String value = raw.trim();
+        if (value.length() >= 2) {
+            char first = value.charAt(0);
+            char last = value.charAt(value.length() - 1);
+            if ((first == '\"' && last == '\"') || (first == '\'' && last == '\'')) {
+                value = value.substring(1, value.length() - 1).trim();
+            }
+        }
+        return value;
     }
 }

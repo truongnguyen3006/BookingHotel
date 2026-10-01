@@ -17,6 +17,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,6 +47,12 @@ private enum class HistoryFilter {
 fun BookingHistoryScreen(viewModel: BookingViewModel) {
     val bookings by viewModel.bookingHistory.collectAsState()
     var filter by remember { mutableStateOf(HistoryFilter.ALL) }
+
+    // Always reconcile the local Room history with the server when this screen opens.
+    // This prevents stale local payment states from being shown after returning from VNPAY.
+    LaunchedEffect(Unit) {
+        viewModel.refreshBookingHistory()
+    }
 
     val visibleBookings = bookings.filter { booking ->
         when (filter) {

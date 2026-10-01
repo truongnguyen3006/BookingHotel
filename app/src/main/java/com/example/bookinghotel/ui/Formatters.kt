@@ -22,8 +22,8 @@ fun Double.toCurrencyLabel(): String {
 fun String.toBookingStatusLabel(): String {
     return when (this) {
         "PENDING_PAYMENT" -> "Chờ thanh toán"
-        "PROCESSING" -> "Đang xử lý"
-        "SUCCESS" -> "Thành công"
+        "PROCESSING" -> "Đang xử lý thanh toán"
+        "SUCCESS" -> "Đã thanh toán"
         "FAILED" -> "Thất bại"
         else -> this
     }

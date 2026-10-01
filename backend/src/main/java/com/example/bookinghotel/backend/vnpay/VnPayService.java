@@ -14,6 +14,8 @@ import com.example.bookinghotel.backend.exception.NotFoundException;
 import com.example.bookinghotel.backend.repository.BookingJpaRepository;
 import com.example.bookinghotel.backend.repository.PaymentJpaRepository;
 import com.example.bookinghotel.backend.service.CurrentUserService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,9 +31,13 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class VnPayService {
+    private static final Logger log = LoggerFactory.getLogger(VnPayService.class);
+    private static final Pattern IPV4_PATTERN = Pattern.compile("(?<![0-9])(?:[0-9]{1,3}\\.){3}[0-9]{1,3}(?![0-9])");
     private static final ZoneId VNPAY_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final DateTimeFormatter VNPAY_TIME = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
     private static final long MAX_VNPAY_AMOUNT_VND = 9_999_999_999L;
@@ -224,6 +230,18 @@ public class VnPayService {
         Instant createdAt = payment.getCreatedAt();
         Instant expiresAt = expiresAt(payment);
         Map<String, String> params = buildPaymentParams(payment, clientIp, createdAt, expiresAt);
+        log.info(
+                "VNPAY create bookingId={} txnRef={} tmnCode={} amount={} ip={} createDate={} expireDate={} returnUrl={} hashSecretLength={}",
+                payment.getBooking().getId(),
+                payment.getProviderReference(),
+                properties.getTmnCode(),
+                params.get("vnp_Amount"),
+                params.get("vnp_IpAddr"),
+                params.get("vnp_CreateDate"),
+                params.get("vnp_ExpireDate"),
+                properties.getReturnUrl(),
+                properties.getHashSecret().length()
+        );
         String query = VnPaySigner.buildSignedQuery(params, properties.getHashSecret());
         String paymentUrl = properties.getPayUrl() + "?" + query;
         return new VnPayCreateResponse(
@@ -354,8 +372,14 @@ public class VnPayService {
     }
 
     private void requireConfiguration() {
+        if (!properties.getTmnCode().matches("[A-Za-z0-9]{8}")) {
+            throw new IllegalStateException("VNP_TMN_CODE must contain exactly 8 alphanumeric characters.");
+        }
+        if (properties.getHashSecret().isBlank()) {
+            throw new IllegalStateException("VNP_HASH_SECRET is missing.");
+        }
         if (!properties.isConfigured()) {
-            throw new IllegalStateException("VNPAY is not configured. Set VNP_TMN_CODE and VNP_HASH_SECRET.");
+            throw new IllegalStateException("VNPAY configuration is incomplete. Check VNP_PAY_URL and VNP_RETURN_URL.");
         }
         if (properties.getExpireMinutes() <= 0) {
             throw new IllegalStateException("VNP_EXPIRE_MINUTES must be greater than zero");
@@ -367,10 +391,31 @@ public class VnPayService {
     }
 
     private String normalizeIp(String raw) {
+        // VNPAY documents vnp_IpAddr using IPv4 examples. Railway may forward an IPv6
+        // address, so prefer a valid IPv4 address and use the documented localhost
+        // fallback for sandbox requests when no IPv4 address is available.
         if (raw == null || raw.isBlank()) return "127.0.0.1";
         String first = raw.split(",")[0].trim();
-        if (first.length() > 45) return "127.0.0.1";
-        return first;
+        Matcher matcher = IPV4_PATTERN.matcher(first);
+        if (matcher.find() && isValidIpv4(matcher.group())) {
+            return matcher.group();
+        }
+        log.warn("VNPAY request received non-IPv4 client address; using sandbox fallback 127.0.0.1");
+        return "127.0.0.1";
+    }
+
+    private boolean isValidIpv4(String value) {
+        String[] parts = value.split("\\.");
+        if (parts.length != 4) return false;
+        for (String part : parts) {
+            try {
+                int number = Integer.parseInt(part);
+                if (number < 0 || number > 255) return false;
+            } catch (NumberFormatException exception) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private Map<String, String> ipn(String code, String message) {
