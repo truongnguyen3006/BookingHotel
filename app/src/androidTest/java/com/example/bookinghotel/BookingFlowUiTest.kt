@@ -3,6 +3,7 @@ package com.example.bookinghotel
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -38,7 +39,7 @@ class BookingFlowUiTest {
         composeRule.onNodeWithTag("payment_history_button").performClick()
 
         composeRule.onNodeWithText("Booking #1").assertIsDisplayed()
-        composeRule.onNodeWithText("Thành công").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Đã thanh toán")[0].assertIsDisplayed()
     }
 
     @Test
