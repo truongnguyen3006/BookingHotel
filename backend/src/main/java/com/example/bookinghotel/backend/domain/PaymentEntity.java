@@ -42,6 +42,18 @@ public class PaymentEntity {
     @Column(name = "idempotency_key", nullable = false, length = 120)
     private String idempotencyKey;
 
+    @Column(name = "provider_reference", length = 100, unique = true)
+    private String providerReference;
+
+    @Column(name = "provider_response_code", length = 20)
+    private String providerResponseCode;
+
+    @Column(name = "provider_transaction_status", length = 20)
+    private String providerTransactionStatus;
+
+    @Column(name = "amount_vnd")
+    private Long amountVnd;
+
     @Column(name = "paid_at")
     private Instant paidAt;
 
@@ -52,11 +64,22 @@ public class PaymentEntity {
 
     public PaymentEntity(BookingEntity booking, PaymentMethod method, PaymentStatus status,
                          String transactionId, String idempotencyKey, Instant paidAt, Instant createdAt) {
+        this(booking, method, status, transactionId, idempotencyKey, null, null, null, null, paidAt, createdAt);
+    }
+
+    public PaymentEntity(BookingEntity booking, PaymentMethod method, PaymentStatus status,
+                         String transactionId, String idempotencyKey, String providerReference,
+                         String providerResponseCode, String providerTransactionStatus, Long amountVnd,
+                         Instant paidAt, Instant createdAt) {
         this.booking = booking;
         this.method = method;
         this.status = status;
         this.transactionId = transactionId;
         this.idempotencyKey = idempotencyKey;
+        this.providerReference = providerReference;
+        this.providerResponseCode = providerResponseCode;
+        this.providerTransactionStatus = providerTransactionStatus;
+        this.amountVnd = amountVnd;
         this.paidAt = paidAt;
         this.createdAt = createdAt;
     }
@@ -67,6 +90,24 @@ public class PaymentEntity {
     public PaymentStatus getStatus() { return status; }
     public String getTransactionId() { return transactionId; }
     public String getIdempotencyKey() { return idempotencyKey; }
+    public String getProviderReference() { return providerReference; }
+    public String getProviderResponseCode() { return providerResponseCode; }
+    public String getProviderTransactionStatus() { return providerTransactionStatus; }
+    public Long getAmountVnd() { return amountVnd; }
     public Instant getPaidAt() { return paidAt; }
     public Instant getCreatedAt() { return createdAt; }
+
+    public void completeProviderPayment(
+            PaymentStatus status,
+            String transactionId,
+            String responseCode,
+            String transactionStatus,
+            Instant paidAt
+    ) {
+        this.status = status;
+        this.transactionId = transactionId;
+        this.providerResponseCode = responseCode;
+        this.providerTransactionStatus = transactionStatus;
+        this.paidAt = paidAt;
+    }
 }

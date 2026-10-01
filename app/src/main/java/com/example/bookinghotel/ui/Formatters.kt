@@ -39,3 +39,7 @@ fun String.toRoomLabel(): String {
         else -> this
     }
 }
+
+fun Long.toVndLabel(): String {
+    return NumberFormat.getCurrencyInstance(Locale("vi", "VN")).format(this)
+}

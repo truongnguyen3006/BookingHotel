@@ -5,6 +5,8 @@ import com.example.bookinghotel.data.Booking
 import com.example.bookinghotel.data.PaymentMethod
 import com.example.bookinghotel.data.PaymentResult
 import com.example.bookinghotel.data.Room
+import com.example.bookinghotel.data.VnPayPaymentSession
+import com.example.bookinghotel.data.VnPayPaymentStatus
 import java.util.Calendar
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -146,6 +148,20 @@ class InMemoryRoomRepository : RoomRepository {
         )
         paymentAttemptResults[attemptKey] = result
         return Result.success(result)
+    }
+
+
+    override suspend fun createVnPayPayment(
+        booking: Booking,
+        idempotencyKey: String
+    ): Result<VnPayPaymentSession> {
+        return Result.failure(UnsupportedOperationException("VNPAY requires the Retrofit backend"))
+    }
+
+    override suspend fun getVnPayPaymentStatus(
+        booking: Booking
+    ): Result<VnPayPaymentStatus> {
+        return Result.failure(UnsupportedOperationException("VNPAY requires the Retrofit backend"))
     }
 
     private fun startOfToday(): Long {

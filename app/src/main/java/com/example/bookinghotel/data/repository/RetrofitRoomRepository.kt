@@ -4,6 +4,8 @@ import com.example.bookinghotel.data.Booking
 import com.example.bookinghotel.data.PaymentMethod
 import com.example.bookinghotel.data.PaymentResult
 import com.example.bookinghotel.data.Room
+import com.example.bookinghotel.data.VnPayPaymentSession
+import com.example.bookinghotel.data.VnPayPaymentStatus
 import com.example.bookinghotel.data.local.BookingDao
 import com.example.bookinghotel.data.local.RoomCacheDao
 import com.example.bookinghotel.data.local.toCacheEntity
@@ -12,6 +14,7 @@ import com.example.bookinghotel.data.local.toEntity
 import com.example.bookinghotel.data.remote.HotelApiService
 import com.example.bookinghotel.data.remote.dto.BookingRequestDto
 import com.example.bookinghotel.data.remote.dto.PaymentRequestDto
+import com.example.bookinghotel.data.remote.dto.VnPayCreateRequestDto
 import com.example.bookinghotel.data.remote.toDomain
 import java.util.Calendar
 import java.util.UUID
@@ -218,6 +221,76 @@ class RetrofitRoomRepository @Inject constructor(
                 paidAt = response.paidAt
             )
         }
+    }
+
+
+    override suspend fun createVnPayPayment(
+        booking: Booking,
+        idempotencyKey: String
+    ): Result<VnPayPaymentSession> = runCatching {
+        val response = api.createVnPayPayment(
+            bookingId = booking.bookingId,
+            request = VnPayCreateRequestDto(
+                idempotencyKey = idempotencyKey.ifBlank { UUID.randomUUID().toString() }
+            )
+        )
+
+        if (response.status != "PENDING" || response.paymentUrl.isBlank()) {
+            bookingDao.updatePaymentDetails(
+                localId = booking.localId,
+                status = "FAILED",
+                paymentMethod = PaymentMethod.VNPAY.name,
+                transactionId = null,
+                paidAt = null
+            )
+            throw IllegalStateException("VNPAY payment session is no longer active. Please retry.")
+        }
+
+        bookingDao.updatePaymentDetails(
+            localId = booking.localId,
+            status = "PROCESSING",
+            paymentMethod = PaymentMethod.VNPAY.name,
+            transactionId = null,
+            paidAt = null
+        )
+
+        VnPayPaymentSession(
+            bookingId = response.bookingId,
+            paymentUrl = response.paymentUrl,
+            txnRef = response.txnRef,
+            amountVnd = response.amountVnd,
+            expiresAt = response.expiresAt
+        )
+    }
+
+    override suspend fun getVnPayPaymentStatus(
+        booking: Booking
+    ): Result<VnPayPaymentStatus> = runCatching {
+        val response = api.getVnPayPaymentStatus(booking.bookingId)
+        val bookingStatus = when (response.status) {
+            "SUCCESS" -> "SUCCESS"
+            "FAILED" -> "FAILED"
+            else -> "PROCESSING"
+        }
+
+        bookingDao.updatePaymentDetails(
+            localId = booking.localId,
+            status = bookingStatus,
+            paymentMethod = PaymentMethod.VNPAY.name,
+            transactionId = response.transactionId,
+            paidAt = response.paidAt
+        )
+
+        VnPayPaymentStatus(
+            bookingId = response.bookingId,
+            status = response.status,
+            transactionId = response.transactionId,
+            txnRef = response.txnRef,
+            amountVnd = response.amountVnd,
+            responseCode = response.responseCode,
+            message = response.message,
+            paidAt = response.paidAt
+        )
     }
 
     private fun startOfToday(): Long {

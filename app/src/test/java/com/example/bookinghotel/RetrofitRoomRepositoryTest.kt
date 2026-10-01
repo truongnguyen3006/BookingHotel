@@ -12,6 +12,9 @@ import com.example.bookinghotel.data.remote.dto.BookingResponseDto
 import com.example.bookinghotel.data.remote.dto.PaymentRequestDto
 import com.example.bookinghotel.data.remote.dto.PaymentResponseDto
 import com.example.bookinghotel.data.remote.dto.RoomDto
+import com.example.bookinghotel.data.remote.dto.VnPayCreateRequestDto
+import com.example.bookinghotel.data.remote.dto.VnPayCreateResponseDto
+import com.example.bookinghotel.data.remote.dto.VnPayStatusResponseDto
 import com.example.bookinghotel.data.repository.RetrofitRoomRepository
 import com.example.bookinghotel.data.repository.RoomDataSource
 import java.io.IOException
@@ -193,6 +196,31 @@ class RetrofitRoomRepositoryTest {
         assertEquals("TXN-7", result.transactionId)
     }
 
+    @Test
+    fun createVnPayPayment_updatesLocalBookingToProcessing() = runTest {
+        val api = FakeHotelApiService()
+        val dao = FakeBookingDao()
+        val repository = RetrofitRoomRepository(api, dao, FakeRoomCacheDao())
+        val booking = Booking(
+            localId = 77L,
+            bookingId = 9,
+            roomId = 1,
+            roomTypeKey = "standard",
+            quantity = 1,
+            pricePerNight = 50.0,
+            totalPrice = 50.0,
+            status = "PENDING_PAYMENT",
+            createdAt = 1L
+        )
+
+        val session = repository.createVnPayPayment(booking, "idem-vnpay-1").getOrThrow()
+
+        assertEquals(9, session.bookingId)
+        assertTrue(session.paymentUrl.startsWith("https://sandbox.vnpayment.vn/"))
+        assertEquals(77L, dao.lastUpdatedLocalId)
+        assertEquals("PROCESSING", dao.lastUpdatedStatus)
+    }
+
     private class FakeHotelApiService : HotelApiService {
         var roomsResponse: List<RoomDto> = listOf(
             RoomDto(
@@ -248,6 +276,32 @@ class RetrofitRoomRepositoryTest {
             lastPaymentRequest = request
             return paymentResponse
         }
+
+        override suspend fun createVnPayPayment(
+            bookingId: Int,
+            request: VnPayCreateRequestDto
+        ): VnPayCreateResponseDto = VnPayCreateResponseDto(
+            bookingId = bookingId,
+            status = "PENDING",
+            paymentUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?demo=1",
+            txnRef = "BH${bookingId}123",
+            amountVnd = 1_250_000L,
+            expiresAt = System.currentTimeMillis() + 900_000L
+        )
+
+        override suspend fun getVnPayPaymentStatus(
+            bookingId: Int
+        ): VnPayStatusResponseDto = VnPayStatusResponseDto(
+            bookingId = bookingId,
+            status = "SUCCESS",
+            method = "VNPAY",
+            transactionId = "VNP123",
+            txnRef = "BH${bookingId}123",
+            amountVnd = 1_250_000L,
+            responseCode = "00",
+            message = "Payment completed successfully",
+            paidAt = System.currentTimeMillis()
+        )
     }
 
     private class FakeBookingDao(

@@ -4,6 +4,8 @@ import com.example.bookinghotel.data.Booking
 import com.example.bookinghotel.data.PaymentMethod
 import com.example.bookinghotel.data.PaymentResult
 import com.example.bookinghotel.data.Room
+import com.example.bookinghotel.data.VnPayPaymentSession
+import com.example.bookinghotel.data.VnPayPaymentStatus
 import com.example.bookinghotel.data.repository.InMemoryRoomRepository
 import com.example.bookinghotel.data.repository.RoomDataSource
 import com.example.bookinghotel.data.repository.RoomRepository
@@ -144,5 +146,14 @@ class BookingViewModelTest {
             simulateFailure: Boolean,
             idempotencyKey: String
         ): Result<PaymentResult> = Result.failure(UnsupportedOperationException())
+
+        override suspend fun createVnPayPayment(
+            booking: Booking,
+            idempotencyKey: String
+        ): Result<VnPayPaymentSession> = Result.failure(UnsupportedOperationException())
+
+        override suspend fun getVnPayPaymentStatus(
+            booking: Booking
+        ): Result<VnPayPaymentStatus> = Result.failure(UnsupportedOperationException())
     }
 }

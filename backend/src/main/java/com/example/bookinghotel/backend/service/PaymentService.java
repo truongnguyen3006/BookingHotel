@@ -38,7 +38,7 @@ public class PaymentService {
     @Transactional
     public PaymentResponse pay(int bookingId, PaymentRequest request) {
         Long userId = currentUserService.requireUser().getId();
-        BookingEntity booking = bookingRepository.findByIdAndUser_Id(bookingId, userId)
+        BookingEntity booking = bookingRepository.findOwnedByIdForUpdate(bookingId, userId)
                 .orElseThrow(() -> new NotFoundException("BOOKING_NOT_FOUND", "Booking not found"));
 
         var existing = paymentRepository.findByBooking_IdAndIdempotencyKey(bookingId, request.idempotencyKey());
@@ -86,7 +86,16 @@ public class PaymentService {
 
     private PaymentMethod parseMethod(String rawMethod) {
         try {
-            return PaymentMethod.valueOf(rawMethod.trim().toUpperCase(Locale.ROOT));
+            PaymentMethod method = PaymentMethod.valueOf(rawMethod.trim().toUpperCase(Locale.ROOT));
+            if (method == PaymentMethod.VNPAY) {
+                throw new BadRequestException(
+                        "USE_VNPAY_ENDPOINT",
+                        "VNPAY payments must use /api/bookings/{bookingId}/payment/vnpay"
+                );
+            }
+            return method;
+        } catch (BadRequestException exception) {
+            throw exception;
         } catch (RuntimeException exception) {
             throw new BadRequestException("UNSUPPORTED_PAYMENT_METHOD", "Unsupported payment method");
         }

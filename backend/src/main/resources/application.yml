@@ -45,3 +45,13 @@ app:
       email: ${ADMIN_EMAIL:}
       password: ${ADMIN_PASSWORD:}
       display-name: ${ADMIN_DISPLAY_NAME:Hotel Admin}
+
+vnpay:
+  tmn-code: ${VNP_TMN_CODE:}
+  hash-secret: ${VNP_HASH_SECRET:}
+  pay-url: ${VNP_PAY_URL:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+  return-url: ${VNP_RETURN_URL:http://localhost:8080/api/payments/vnpay/return}
+  expire-minutes: ${VNP_EXPIRE_MINUTES:15}
+  # Existing catalog prices are demo USD-like units; convert to VND only for sandbox charging.
+  # Set to 1 if you later store room prices directly in VND.
+  vnd-per-price-unit: ${VNP_VND_PER_PRICE_UNIT:25000}

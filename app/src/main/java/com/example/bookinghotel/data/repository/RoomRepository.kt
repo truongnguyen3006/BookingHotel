@@ -4,6 +4,8 @@ import com.example.bookinghotel.data.Booking
 import com.example.bookinghotel.data.PaymentMethod
 import com.example.bookinghotel.data.PaymentResult
 import com.example.bookinghotel.data.Room
+import com.example.bookinghotel.data.VnPayPaymentSession
+import com.example.bookinghotel.data.VnPayPaymentStatus
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -40,4 +42,13 @@ interface RoomRepository {
         simulateFailure: Boolean = false,
         idempotencyKey: String = ""
     ): Result<PaymentResult>
+
+    suspend fun createVnPayPayment(
+        booking: Booking,
+        idempotencyKey: String
+    ): Result<VnPayPaymentSession>
+
+    suspend fun getVnPayPaymentStatus(
+        booking: Booking
+    ): Result<VnPayPaymentStatus>
 }

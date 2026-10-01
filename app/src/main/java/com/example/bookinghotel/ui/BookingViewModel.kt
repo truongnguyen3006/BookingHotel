@@ -9,6 +9,7 @@ import com.example.bookinghotel.data.Booking
 import com.example.bookinghotel.data.PaymentMethod
 import com.example.bookinghotel.data.PaymentResult
 import com.example.bookinghotel.data.Room
+import com.example.bookinghotel.data.VnPayPaymentSession
 import com.example.bookinghotel.data.repository.RoomDataSource
 import com.example.bookinghotel.data.repository.RoomRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -34,6 +35,8 @@ sealed interface BookingUiState {
 sealed interface PaymentUiState {
     data object Idle : PaymentUiState
     data object Loading : PaymentUiState
+    data class VnPayReady(val session: VnPayPaymentSession) : PaymentUiState
+    data class VnPayPending(val session: VnPayPaymentSession, val message: String) : PaymentUiState
     data class Success(val result: PaymentResult) : PaymentUiState
     data class Failed(val result: PaymentResult) : PaymentUiState
     data class Error(val message: String) : PaymentUiState
@@ -265,6 +268,104 @@ class BookingViewModel @Inject constructor(
                 .onFailure { throwable ->
                     // Keep the same key after a network error. Retrying is safe and idempotent.
                     _paymentState.value = PaymentUiState.Error(throwable.toPaymentUserMessage())
+                }
+        }
+    }
+
+    fun startVnPayPayment() {
+        val booking = _lastBooking.value
+        if (booking == null) {
+            _paymentState.value = PaymentUiState.Error("Không tìm thấy booking để thanh toán.")
+            return
+        }
+
+        viewModelScope.launch {
+            _paymentState.value = PaymentUiState.Loading
+            roomRepository.createVnPayPayment(
+                booking = booking,
+                idempotencyKey = paymentIdempotencyKey
+            )
+                .onSuccess { session ->
+                    _lastBooking.value = booking.copy(
+                        status = "PROCESSING",
+                        paymentMethod = PaymentMethod.VNPAY.name,
+                        transactionId = null,
+                        paidAt = null
+                    )
+                    _paymentState.value = PaymentUiState.VnPayReady(session)
+                }
+                .onFailure { throwable ->
+                    // A new key is safe here: the backend locks the booking and reuses any
+                    // still-active VNPAY transaction, while an expired attempt can be replaced.
+                    paymentIdempotencyKey = UUID.randomUUID().toString()
+                    _paymentState.value = PaymentUiState.Error(throwable.toPaymentUserMessage())
+                }
+        }
+    }
+
+    fun checkVnPayPaymentStatus() {
+        val booking = _lastBooking.value ?: return
+        val currentState = _paymentState.value
+        val session = when (currentState) {
+            is PaymentUiState.VnPayReady -> currentState.session
+            is PaymentUiState.VnPayPending -> currentState.session
+            else -> null
+        } ?: return
+
+        viewModelScope.launch {
+            roomRepository.getVnPayPaymentStatus(booking)
+                .onSuccess { status ->
+                    when (status.status) {
+                        "SUCCESS" -> {
+                            val result = PaymentResult(
+                                bookingId = status.bookingId,
+                                status = "SUCCESS",
+                                method = PaymentMethod.VNPAY,
+                                transactionId = status.transactionId,
+                                message = status.message,
+                                paidAt = status.paidAt
+                            )
+                            _lastBooking.value = booking.copy(
+                                status = "SUCCESS",
+                                paymentMethod = PaymentMethod.VNPAY.name,
+                                transactionId = status.transactionId,
+                                paidAt = status.paidAt
+                            )
+                            _paymentState.value = PaymentUiState.Success(result)
+                            refreshBookingHistory()
+                        }
+                        "FAILED" -> {
+                            val result = PaymentResult(
+                                bookingId = status.bookingId,
+                                status = "FAILED",
+                                method = PaymentMethod.VNPAY,
+                                transactionId = status.transactionId,
+                                message = status.message,
+                                paidAt = status.paidAt
+                            )
+                            _lastBooking.value = booking.copy(
+                                status = "FAILED",
+                                paymentMethod = PaymentMethod.VNPAY.name,
+                                transactionId = status.transactionId,
+                                paidAt = status.paidAt
+                            )
+                            paymentIdempotencyKey = UUID.randomUUID().toString()
+                            _paymentState.value = PaymentUiState.Failed(result)
+                            refreshBookingHistory()
+                        }
+                        else -> {
+                            _paymentState.value = PaymentUiState.VnPayPending(
+                                session = session,
+                                message = "VNPAY chưa gửi xác nhận cuối cùng. Hãy đợi vài giây rồi kiểm tra lại."
+                            )
+                        }
+                    }
+                }
+                .onFailure { throwable ->
+                    _paymentState.value = PaymentUiState.VnPayPending(
+                        session = session,
+                        message = throwable.toPaymentUserMessage()
+                    )
                 }
         }
     }
