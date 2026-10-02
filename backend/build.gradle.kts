@@ -46,6 +46,10 @@ dependencies {
 // Attach Mockito at JVM startup; self-attach is unavailable in some CI/container runtimes.
 tasks.withType<Test>().configureEach {
     doFirst { jvmArgs("-javaagent:${mockitoAgent.singleFile.absolutePath}") }
+    testLogging {
+        events("failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
 }
 
 tasks.named<Test>("test") {
@@ -65,4 +69,3 @@ tasks.check { dependsOn(integrationTest) }
 tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
     archiveFileName.set("booking-hotel-backend.jar")
 }
-

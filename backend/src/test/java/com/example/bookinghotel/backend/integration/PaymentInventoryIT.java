@@ -17,6 +17,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.test.util.AopTestUtils;
 import org.springframework.web.context.WebApplicationContext;
 import org.testcontainers.mysql.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -35,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -61,11 +63,13 @@ class PaymentInventoryIT {
     @Autowired JdbcTemplate jdbc;
     @Autowired WebApplicationContext context;
     @MockitoSpyBean BookingLifecycleService lifecycle;
+    BookingLifecycleService lifecycleTarget;
     MockMvc mvc;
     int roomId;
 
     @BeforeEach void setUp() {
-        reset(lifecycle);
+        lifecycleTarget = AopTestUtils.getUltimateTargetObject(lifecycle);
+        reset(lifecycleTarget);
         jdbc.update("DELETE FROM payments");
         jdbc.update("DELETE FROM bookings");
         if (userRepo.findByEmailIgnoreCase("a@phase5.test").isEmpty()) {
@@ -98,14 +102,14 @@ class PaymentInventoryIT {
     @Test void lifecycleExceptionRollsBackAlreadyMutatedPayment() {
         int id = book();
         String ref = vnpay.createPayment(id, "first", "127.0.0.1").txnRef();
-        doThrow(new IllegalStateException("injected after Payment change")).when(lifecycle).markSuccessful(any());
+        doThrow(new IllegalStateException("injected after Payment change")).when(lifecycleTarget).markSuccessful(any());
         assertThrows(RuntimeException.class, () -> vnpay.processIpn(callback(ref, "00", "00")));
         assertState(id, "PROCESSING", false, 4, "PENDING");
     }
     @Test void inventoryFailureRollsBackFailedPaymentAndReleasedFlag() {
         int id = book();
         String ref = vnpay.createPayment(id, "first", "127.0.0.1").txnRef();
-        doThrow(new IllegalStateException("injected room failure")).when(lifecycle).markFailedAndRelease(any());
+        doThrow(new IllegalStateException("injected room failure")).when(lifecycleTarget).markFailedAndRelease(any());
         assertThrows(RuntimeException.class, () -> vnpay.processIpn(callback(ref, "24", "02")));
         assertState(id, "PROCESSING", false, 4, "PENDING");
     }
@@ -181,6 +185,28 @@ class PaymentInventoryIT {
         assertEquals(refs.get(0), refs.get(1));
         assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM payments WHERE booking_id=?", Integer.class, id));
     }
+    @Test void simultaneousSameKeyDemoPayments_returnOneIdempotentReceipt() throws Exception {
+        int id = book();
+        List<String> receipts = race(() -> payments.pay(id, new PaymentRequest("CARD", false, "same")).transactionId(),
+                                    () -> payments.pay(id, new PaymentRequest("CARD", false, "same")).transactionId());
+        assertEquals(receipts.get(0), receipts.get(1));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM payments WHERE booking_id=?", Integer.class, id));
+        assertState(id, "SUCCESS", false, 4, "SUCCESS");
+    }
+    @Test void concurrentDemoAndVnpayPayment_onlyOneMethodStarts() throws Exception {
+        int id = book();
+        List<Boolean> attempts = race(() -> {
+            try { payments.pay(id, new PaymentRequest("CARD", false, "card")); return true; }
+            catch (com.example.bookinghotel.backend.exception.ConflictException e) { return false; }
+        }, () -> {
+            try { vnpay.createPayment(id, "vnpay", "127.0.0.1"); return true; }
+            catch (com.example.bookinghotel.backend.exception.ConflictException e) { return false; }
+        });
+        assertEquals(1, attempts.stream().filter(Boolean::booleanValue).count());
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM payments WHERE booking_id=?", Integer.class, id));
+        if (bookingStatus(id).equals("SUCCESS")) assertState(id, "SUCCESS", false, 4, "SUCCESS");
+        else assertState(id, "PROCESSING", false, 4, "PENDING");
+    }
     @Test void expiredPaymentCannotSucceedLater() {
         int id = book();
         String ref = vnpay.createPayment(id, "first", "127.0.0.1").txnRef();
@@ -218,7 +244,7 @@ class PaymentInventoryIT {
         mvc.perform(post("/api/bookings/"+id+"/payment").with(user("b@phase5.test").roles("USER"))
                 .contentType("application/json").content("{\"method\":\"CARD\",\"simulateFailure\":false,\"idempotencyKey\":\"attack\"}")).andExpect(status().isNotFound());
         mvc.perform(get("/api/admin/dashboard").with(user("a@phase5.test").roles("USER"))).andExpect(status().isForbidden());
-        mvc.perform(get("/api/bookings/"+id)).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/bookings/"+id).with(anonymous())).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/bookings/"+id+"/payment").with(user("a@phase5.test").roles("USER"))
                 .contentType("application/json").content("{\"method\":\"SUCCESS\",\"idempotencyKey\":\"attack\"}")).andExpect(status().isBadRequest());
         assertState(id, "PROCESSING", false, 4, "PENDING");
