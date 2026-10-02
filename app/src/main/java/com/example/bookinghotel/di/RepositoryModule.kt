@@ -15,6 +15,14 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
+    @Binds
+    @Singleton
+    abstract fun bindAppStrings(strings: com.example.bookinghotel.ui.AndroidAppStrings): com.example.bookinghotel.ui.AppStrings
+
+    @Binds
+    @Singleton
+    abstract fun bindSessionStore(tokenStore: com.example.bookinghotel.data.auth.TokenStore): com.example.bookinghotel.data.auth.SessionStore
+
 
     @Binds
     @Singleton

@@ -29,6 +29,10 @@ object BackgroundSyncScheduler {
                 .build()
         )
 
+    }
+
+    fun scheduleAuthenticatedSync(context: Context) {
+        val workManager = WorkManager.getInstance(context)
         workManager.enqueueUniquePeriodicWork(
             BookingHistorySyncWorker.WORK_NAME_PERIODIC,
             ExistingPeriodicWorkPolicy.UPDATE,
@@ -38,6 +42,11 @@ object BackgroundSyncScheduler {
                 .addTag(BookingHistorySyncWorker.TAG)
                 .build()
         )
+        enqueueHistorySync(context)
+    }
+
+    fun cancelAuthenticatedSync(context: Context) {
+        WorkManager.getInstance(context).cancelAllWorkByTag(BookingHistorySyncWorker.TAG)
     }
 
     /** Schedules room and user-history sync independently so one failure never blocks the other. */
@@ -52,6 +61,11 @@ object BackgroundSyncScheduler {
                 .addTag(RoomCatalogSyncWorker.TAG)
                 .build()
         )
+        enqueueHistorySync(context)
+    }
+
+    private fun enqueueHistorySync(context: Context) {
+        val workManager = WorkManager.getInstance(context)
         workManager.enqueueUniqueWork(
             BookingHistorySyncWorker.WORK_NAME_IMMEDIATE,
             ExistingWorkPolicy.REPLACE,

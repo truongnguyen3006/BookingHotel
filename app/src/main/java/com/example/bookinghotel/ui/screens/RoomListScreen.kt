@@ -98,7 +98,7 @@ fun RoomListScreen(viewModel: BookingViewModel, navController: NavController) {
                         .weight(1f)
                         .testTag("room_search"),
                     singleLine = true,
-                    label = { Text("Tìm loại phòng hoặc tiện nghi") },
+                    label = { Text(stringResource(R.string.tim_loai_phong_hoac_tien_nghi)) },
                     leadingIcon = {
                         Icon(Icons.Default.Search, contentDescription = null)
                     }
@@ -108,12 +108,12 @@ fun RoomListScreen(viewModel: BookingViewModel, navController: NavController) {
                     onClick = { navController.navigate(Screen.History.route) },
                     modifier = Modifier.testTag("history_button")
                 ) {
-                    Text("Lịch sử")
+                    Text(stringResource(R.string.lich_su))
                 }
             }
 
             Text(
-                text = "Bộ lọc",
+                text = stringResource(R.string.bo_loc),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
@@ -129,7 +129,7 @@ fun RoomListScreen(viewModel: BookingViewModel, navController: NavController) {
                 FilterChip(
                     selected = filterState.onlyAvailable,
                     onClick = viewModel::toggleAvailableOnly,
-                    label = { Text("Còn phòng") }
+                    label = { Text(stringResource(R.string.con_phong)) }
                 )
                 FilterChip(
                     selected = filterState.priceFilter == PriceFilter.UNDER_2_5_MILLION,
@@ -142,7 +142,7 @@ fun RoomListScreen(viewModel: BookingViewModel, navController: NavController) {
                             }
                         )
                     },
-                    label = { Text("Dưới 2,5 triệu") }
+                    label = { Text(stringResource(R.string.duoi_2_5_trieu)) }
                 )
                 FilterChip(
                     selected = filterState.priceFilter == PriceFilter.AT_LEAST_2_5_MILLION,
@@ -155,9 +155,10 @@ fun RoomListScreen(viewModel: BookingViewModel, navController: NavController) {
                             }
                         )
                     },
-                    label = { Text("Từ 2,5 triệu") }
+                    label = { Text(stringResource(R.string.tu_2_5_trieu)) }
                 )
-                listOf("Wi-Fi", "Breakfast", "Jacuzzi").forEach { amenity ->
+                listOf("Wi-Fi" to R.string.amenity_wifi, "Breakfast" to R.string.amenity_breakfast,
+                    "Jacuzzi" to R.string.amenity_jacuzzi).forEach { (amenity, label) ->
                     FilterChip(
                         selected = filterState.amenity == amenity,
                         onClick = {
@@ -165,7 +166,7 @@ fun RoomListScreen(viewModel: BookingViewModel, navController: NavController) {
                                 if (filterState.amenity == amenity) null else amenity
                             )
                         },
-                        label = { Text(amenity) }
+                        label = { Text(stringResource(label)) }
                     )
                 }
             }
@@ -188,7 +189,7 @@ fun RoomListScreen(viewModel: BookingViewModel, navController: NavController) {
                             }
                         )
                     },
-                    label = { Text("Giá thấp → cao") }
+                    label = { Text(stringResource(R.string.gia_thap_cao)) }
                 )
                 FilterChip(
                     selected = filterState.sortOption == RoomSortOption.PRICE_HIGH_TO_LOW,
@@ -201,7 +202,7 @@ fun RoomListScreen(viewModel: BookingViewModel, navController: NavController) {
                             }
                         )
                     },
-                    label = { Text("Giá cao → thấp") }
+                    label = { Text(stringResource(R.string.gia_cao_thap)) }
                 )
                 if (filterState.query.isNotBlank() ||
                     filterState.onlyAvailable ||
@@ -211,7 +212,7 @@ fun RoomListScreen(viewModel: BookingViewModel, navController: NavController) {
                 ) {
                     AssistChip(
                         onClick = viewModel::clearRoomFilters,
-                        label = { Text("Xóa bộ lọc") }
+                        label = { Text(stringResource(R.string.xoa_bo_loc)) }
                     )
                 }
             }
@@ -222,9 +223,9 @@ fun RoomListScreen(viewModel: BookingViewModel, navController: NavController) {
                     label = {
                         Text(
                             if (lastRoomSyncAt != null) {
-                                "Đang dùng dữ liệu đã lưu • chạm để đồng bộ lại"
+                                stringResource(R.string.ang_dung_du_lieu_a_luu_cham_e_ong_bo_lai)
                             } else {
-                                "Đang dùng dữ liệu đã lưu"
+                                stringResource(R.string.ang_dung_du_lieu_a_luu)
                             }
                         )
                     },
@@ -248,7 +249,7 @@ fun RoomListScreen(viewModel: BookingViewModel, navController: NavController) {
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             CircularProgressIndicator()
-                            Text("Đang tải danh sách phòng...")
+                            Text(stringResource(R.string.ang_tai_danh_sach_phong))
                         }
                     }
 
@@ -266,7 +267,7 @@ fun RoomListScreen(viewModel: BookingViewModel, navController: NavController) {
                             )
                             Button(onClick = viewModel::loadRooms) {
                                 Icon(Icons.Default.Refresh, contentDescription = null)
-                                Text(" Thử lại")
+                                Text(stringResource(R.string.thu_lai))
                             }
                         }
                     }
@@ -280,11 +281,11 @@ fun RoomListScreen(viewModel: BookingViewModel, navController: NavController) {
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Text(
-                                text = "Không có phòng phù hợp với bộ lọc hiện tại.",
+                                text = stringResource(R.string.khong_co_phong_phu_hop_voi_bo_loc_hien_tai),
                                 style = MaterialTheme.typography.bodyLarge
                             )
                             OutlinedButton(onClick = viewModel::clearRoomFilters) {
-                                Text("Xóa bộ lọc")
+                                Text(stringResource(R.string.xoa_bo_loc))
                             }
                         }
                     }
@@ -347,7 +348,7 @@ fun RoomItem(room: Room, onClick: () -> Unit) {
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = "${room.pricePerNight.toCurrencyLabel()}/đêm",
+                        text = stringResource(R.string.em, room.pricePerNight.toCurrencyLabel()),
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
                     )
@@ -355,9 +356,9 @@ fun RoomItem(room: Room, onClick: () -> Unit) {
 
                 Text(
                     text = if (room.availableRooms > 0) {
-                        "Còn ${room.availableRooms} phòng"
+                        stringResource(R.string.con_phong_b556fd, room.availableRooms)
                     } else {
-                        "Hết phòng"
+                        stringResource(R.string.het_phong)
                     },
                     color = if (room.availableRooms > 0) {
                         MaterialTheme.colorScheme.secondary

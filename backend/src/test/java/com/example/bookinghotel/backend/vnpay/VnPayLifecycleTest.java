@@ -80,6 +80,32 @@ class VnPayLifecycleTest {
         verify(fixture.lifecycle(), never()).markSuccessful(fixture.booking());
     }
 
+    @Test
+    void lifecycleFailureEscapesTransactionalBoundaryInsteadOfCommittingPayment() {
+        Fixture fixture = fixture(PaymentStatus.PENDING);
+        org.mockito.Mockito.doThrow(new IllegalStateException("inventory failure"))
+                .when(fixture.lifecycle()).markSuccessful(fixture.booking());
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> fixture.service().processIpn(signedCallback("00", "00")));
+    }
+
+    @Test
+    void successPaymentRejectsLaterFailedCallbackWithoutChangingInventory() {
+        Fixture fixture = fixture(PaymentStatus.SUCCESS);
+        assertEquals("02", fixture.service().processIpn(signedCallback("24", "02")).get("RspCode"));
+        verify(fixture.lifecycle(), never()).markFailedAndRelease(fixture.booking());
+    }
+
+    @Test
+    void pendingCallbackCannotResurrectReleasedBooking() {
+        Fixture fixture = fixture(PaymentStatus.PENDING);
+        when(fixture.booking().isInventoryReleased()).thenReturn(true);
+        assertEquals("02", fixture.service().processIpn(signedCallback("00", "00")).get("RspCode"));
+        verify(fixture.lifecycle(), never()).markSuccessful(fixture.booking());
+        verify(fixture.payment()).completeProviderPayment(PaymentStatus.FAILED, null,
+                "SUPERSEDED", "SUPERSEDED", null);
+    }
+
     private Fixture fixture(PaymentStatus status) {
         BookingJpaRepository bookingRepository = mock(BookingJpaRepository.class);
         PaymentJpaRepository paymentRepository = mock(PaymentJpaRepository.class);
@@ -99,7 +125,7 @@ class VnPayLifecycleTest {
         when(payment.getAmountVnd()).thenReturn(1_250_000L);
         when(payment.getStatus()).thenReturn(status);
 
-        when(paymentRepository.findByProviderReferenceWithBooking(TXN_REF)).thenReturn(Optional.of(payment));
+        when(paymentRepository.findBookingIdByProviderReference(TXN_REF)).thenReturn(Optional.of(42));
         when(bookingRepository.findByIdForUpdate(42)).thenReturn(Optional.of(lockedBooking));
         when(paymentRepository.findByProviderReferenceForUpdate(TXN_REF)).thenReturn(Optional.of(payment));
 

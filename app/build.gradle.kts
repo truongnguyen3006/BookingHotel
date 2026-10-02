@@ -1,4 +1,5 @@
 import java.util.Properties
+import java.net.URI
 
 plugins {
     alias(libs.plugins.android.application)
@@ -97,6 +98,7 @@ android {
         debug {
             buildConfigField("String", "API_BASE_URL", quotedBuildConfig(localApiBaseUrl))
             buildConfigField("String", "ENVIRONMENT", quotedBuildConfig("local"))
+            buildConfigField("boolean", "DEMO_PAYMENTS_ENABLED", "true")
         }
 
         create("staging") {
@@ -106,6 +108,7 @@ android {
             matchingFallbacks += listOf("debug")
             buildConfigField("String", "API_BASE_URL", quotedBuildConfig(stagingApiBaseUrl))
             buildConfigField("String", "ENVIRONMENT", quotedBuildConfig("staging"))
+            buildConfigField("boolean", "DEMO_PAYMENTS_ENABLED", "true")
         }
 
         release {
@@ -116,6 +119,7 @@ android {
             }
             buildConfigField("String", "API_BASE_URL", quotedBuildConfig(productionApiBaseUrl))
             buildConfigField("String", "ENVIRONMENT", quotedBuildConfig("production"))
+            buildConfigField("boolean", "DEMO_PAYMENTS_ENABLED", "false")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -183,3 +187,25 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 }
+
+// Validate only variants being built, so local/debug development needs no remote URL.
+fun validateRemoteUrl(value: String, propertyName: String) {
+    val uri = URI(value)
+    require(uri.scheme == "https" && !uri.host.isNullOrBlank() && !uri.host.endsWith(".invalid")) {
+        "$propertyName must be set to the actual HTTPS backend URL for this environment"
+    }
+    require(uri.userInfo == null && uri.query == null && uri.fragment == null) {
+        "$propertyName must not contain credentials, a query, or a fragment"
+    }
+}
+val validateStagingBackend = tasks.register("validateStagingBackend") {
+    doLast {
+        validateRemoteUrl(stagingApiBaseUrl, "BOOKING_API_STAGING_URL")
+        require(stagingApiBaseUrl != productionApiBaseUrl) { "Staging must not use the production backend URL" }
+    }
+}
+val validateProductionBackend = tasks.register("validateProductionBackend") {
+    doLast { validateRemoteUrl(productionApiBaseUrl, "BOOKING_API_PROD_URL") }
+}
+tasks.matching { it.name == "preStagingBuild" }.configureEach { dependsOn(validateStagingBackend) }
+tasks.matching { it.name == "preReleaseBuild" }.configureEach { dependsOn(validateProductionBackend) }

@@ -1,5 +1,7 @@
 package com.example.bookinghotel.ui
 
+import com.example.bookinghotel.ui.AppStrings
+import com.example.bookinghotel.R
 import com.example.bookinghotel.data.remote.toAppError
 import com.example.bookinghotel.data.remote.userMessage
 
@@ -22,6 +24,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -44,7 +48,8 @@ sealed interface PaymentUiState {
 
 @HiltViewModel
 class BookingViewModel @Inject constructor(
-    private val roomRepository: RoomRepository
+    private val roomRepository: RoomRepository,
+    private val strings: AppStrings
 ) : ViewModel() {
 
     val rooms: StateFlow<List<Room>> = roomRepository.rooms
@@ -121,11 +126,18 @@ class BookingViewModel @Inject constructor(
 
     init {
         loadRooms()
+        viewModelScope.launch {
+            rooms.collect { latest ->
+                val selected = _selectedRoom.value
+                if (selected != null) _selectedRoom.value = latest.firstOrNull { it.id == selected.id } ?: selected
+            }
+        }
     }
 
     fun loadRooms() {
+        if (_isLoadingRooms.value) return
+        _isLoadingRooms.value = true
         viewModelScope.launch {
-            _isLoadingRooms.value = true
             _roomLoadError.value = null
 
             roomRepository.refreshRooms()
@@ -137,12 +149,29 @@ class BookingViewModel @Inject constructor(
         }
     }
 
+    private val _historyLoading = MutableStateFlow(false)
+    val historyLoading = _historyLoading.asStateFlow()
+    private val _historyError = MutableStateFlow<String?>(null)
+    val historyError = _historyError.asStateFlow()
+    private var checkingPayment = false
+
     fun refreshBookingHistory() {
+        if (_historyLoading.value) return
+        _historyLoading.value = true
+        _historyError.value = null
         viewModelScope.launch {
             roomRepository.refreshBookingHistory()
-                .onFailure { throwable ->
-                    _roomLoadError.value = throwable.toAppError().userMessage()
+                .onSuccess {
+                    val current = _lastBooking.value
+                    if (current != null) {
+                        val latest = roomRepository.bookingHistory.first().firstOrNull { it.bookingId == current.bookingId }
+                        if (latest != null && latest.status != current.status) resumePayment(latest)
+                    }
                 }
+                .onFailure { throwable ->
+                    _historyError.value = throwable.toAppError().userMessage(strings)
+                }
+            _historyLoading.value = false
         }
     }
 
@@ -183,9 +212,10 @@ class BookingViewModel @Inject constructor(
         checkOutDate: Long = 0L,
         guests: Int = 1
     ) {
+        if (_bookingState.value is BookingUiState.Loading) return
         val currentRoom = _selectedRoom.value ?: return
         if (checkInDate > 0L && checkOutDate > 0L && checkOutDate <= checkInDate) {
-            _bookingState.value = BookingUiState.Error("Ngày trả phòng phải sau ngày nhận phòng.")
+            _bookingState.value = BookingUiState.Error(strings.get(R.string.ngay_tra_phong_phai_sau_ngay_nhan_phong))
             return
         }
         val normalizedCheckIn = checkInDate.takeIf { it > 0L } ?: startOfToday()
@@ -194,21 +224,21 @@ class BookingViewModel @Inject constructor(
 
         when {
             quantity <= 0 || quantity > currentRoom.availableRooms -> {
-                _bookingState.value = BookingUiState.Error("Số lượng phòng không hợp lệ.")
+                _bookingState.value = BookingUiState.Error(strings.get(R.string.so_luong_phong_khong_hop_le))
                 return
             }
             guests <= 0 -> {
-                _bookingState.value = BookingUiState.Error("Số khách tối thiểu là 1.")
+                _bookingState.value = BookingUiState.Error(strings.get(R.string.so_khach_toi_thieu_la_1))
                 return
             }
             normalizedCheckOut <= normalizedCheckIn -> {
-                _bookingState.value = BookingUiState.Error("Ngày trả phòng phải sau ngày nhận phòng.")
+                _bookingState.value = BookingUiState.Error(strings.get(R.string.ngay_tra_phong_phai_sau_ngay_nhan_phong))
                 return
             }
         }
 
+        _bookingState.value = BookingUiState.Loading
         viewModelScope.launch {
-            _bookingState.value = BookingUiState.Loading
 
             roomRepository.bookRoom(
                 roomId = currentRoom.id,
@@ -235,14 +265,15 @@ class BookingViewModel @Inject constructor(
         method: PaymentMethod,
         simulateFailure: Boolean
     ) {
+        if (_paymentState.value is PaymentUiState.Loading || checkingPayment) return
         val booking = _lastBooking.value
         if (booking == null) {
-            _paymentState.value = PaymentUiState.Error("Không tìm thấy booking để thanh toán.")
+            _paymentState.value = PaymentUiState.Error(strings.get(R.string.khong_tim_thay_booking_e_thanh_toan))
             return
         }
 
+        _paymentState.value = PaymentUiState.Loading
         viewModelScope.launch {
-            _paymentState.value = PaymentUiState.Loading
 
             roomRepository.payBooking(
                 booking = booking,
@@ -273,14 +304,15 @@ class BookingViewModel @Inject constructor(
     }
 
     fun startVnPayPayment() {
+        if (_paymentState.value is PaymentUiState.Loading || checkingPayment) return
         val booking = _lastBooking.value
         if (booking == null) {
-            _paymentState.value = PaymentUiState.Error("Không tìm thấy booking để thanh toán.")
+            _paymentState.value = PaymentUiState.Error(strings.get(R.string.khong_tim_thay_booking_e_thanh_toan))
             return
         }
 
+        _paymentState.value = PaymentUiState.Loading
         viewModelScope.launch {
-            _paymentState.value = PaymentUiState.Loading
             roomRepository.createVnPayPayment(
                 booking = booking,
                 idempotencyKey = paymentIdempotencyKey
@@ -304,6 +336,7 @@ class BookingViewModel @Inject constructor(
     }
 
     fun checkVnPayPaymentStatus() {
+        if (checkingPayment || _paymentState.value is PaymentUiState.Loading) return
         val booking = _lastBooking.value ?: return
         val currentSession = when (val currentState = _paymentState.value) {
             is PaymentUiState.VnPayReady -> currentState.session
@@ -311,10 +344,11 @@ class BookingViewModel @Inject constructor(
             else -> null
         }
 
+        checkingPayment = true
         viewModelScope.launch {
             _paymentState.value = PaymentUiState.VnPayPending(
                 session = currentSession,
-                message = "Đang kiểm tra trạng thái giao dịch với backend..."
+                message = strings.get(R.string.ang_kiem_tra_trang_thai_giao_dich_voi_backend)
             )
             roomRepository.getVnPayPaymentStatus(booking)
                 .onSuccess { status ->
@@ -359,7 +393,7 @@ class BookingViewModel @Inject constructor(
                         else -> {
                             _paymentState.value = PaymentUiState.VnPayPending(
                                 session = currentSession,
-                                message = "VNPAY chưa gửi xác nhận cuối cùng. Hãy đợi vài giây rồi kiểm tra lại."
+                                message = strings.get(R.string.vnpay_chua_gui_xac_nhan_cuoi_cung_hay_oi_vai_giay_roi_k)
                             )
                         }
                     }
@@ -370,18 +404,44 @@ class BookingViewModel @Inject constructor(
                         message = throwable.toPaymentUserMessage()
                     )
                 }
+            checkingPayment = false
+        }
+    }
+
+    fun handlePaymentReturn(bookingId: Int, onResolved: (Booking?) -> Unit) {
+        viewModelScope.launch {
+            val result = roomRepository.refreshBookingHistory()
+            if (result.isFailure) {
+                _historyError.value = result.exceptionOrNull()?.toUserMessage()
+                onResolved(null)
+                return@launch
+            }
+            // stateIn may not have collected Room's latest emission yet.
+            val bookings = roomRepository.bookingHistory.first()
+            val booking = bookings.firstOrNull { it.bookingId == bookingId }
+            if (booking == null) _historyError.value = strings.get(R.string.khong_tim_thay_booking_trong_tai_khoan_hien_tai)
+            onResolved(booking)
         }
     }
 
     /** Restores a booking selected from History/deep link into the payment flow. */
     fun resumePayment(booking: Booking) {
+        if (_paymentState.value is PaymentUiState.Loading || checkingPayment) return
         _selectedRoom.value = roomRepository.getRoomById(booking.roomId) ?: _selectedRoom.value
         _lastBooking.value = booking
         paymentIdempotencyKey = UUID.randomUUID().toString()
-        _paymentState.value = if (booking.status == "PROCESSING") {
+        _paymentState.value = if (booking.status == "SUCCESS") {
+            PaymentUiState.Success(PaymentResult(booking.bookingId, "SUCCESS",
+                runCatching { PaymentMethod.valueOf(booking.paymentMethod ?: "VNPAY") }.getOrDefault(PaymentMethod.VNPAY),
+                booking.transactionId, strings.get(R.string.booking_a_uoc_thanh_toan), booking.paidAt))
+        } else if (booking.status == "FAILED") {
+            PaymentUiState.Failed(PaymentResult(booking.bookingId, "FAILED",
+                runCatching { PaymentMethod.valueOf(booking.paymentMethod ?: "VNPAY") }.getOrDefault(PaymentMethod.VNPAY),
+                booking.transactionId, strings.get(R.string.that_bai), booking.paidAt))
+        } else if (booking.status == "PROCESSING") {
             PaymentUiState.VnPayPending(
                 session = null,
-                message = "Giao dịch đang được xử lý. Kiểm tra trạng thái để lấy kết quả mới nhất."
+                message = strings.get(R.string.giao_dich_ang_uoc_xu_ly_kiem_tra_trang_thai_e_lay_ket_q)
             )
         } else {
             PaymentUiState.Idle
@@ -424,9 +484,9 @@ class BookingViewModel @Inject constructor(
             .coerceAtLeast(1)
     }
 
-    private fun Throwable.toUserMessage(): String = toAppError().userMessage()
+    private fun Throwable.toUserMessage(): String = toAppError().userMessage(strings)
 
-    private fun Throwable.toPaymentUserMessage(): String = toAppError().userMessage()
+    private fun Throwable.toPaymentUserMessage(): String = toAppError().userMessage(strings)
 
     companion object {
         private const val DAY_MS = 24L * 60L * 60L * 1000L

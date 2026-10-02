@@ -23,8 +23,9 @@ fun BookingEntity.toDomain(): Booking {
     )
 }
 
-fun Booking.toEntity(): BookingEntity {
+fun Booking.toEntity(ownerSessionId: String = ""): BookingEntity {
     return BookingEntity(
+        ownerSessionId = ownerSessionId,
         localId = localId,
         remoteBookingId = bookingId,
         roomId = roomId,

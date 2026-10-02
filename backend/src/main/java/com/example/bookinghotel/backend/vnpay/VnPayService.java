@@ -93,6 +93,12 @@ public class VnPayService {
         }
 
         PaymentEntity latest = paymentRepository.findLatestByBookingIdForUpdate(bookingId).orElse(null);
+        if (latest != null && latest.getStatus() == PaymentStatus.SUCCESS) {
+            throw new ConflictException("BOOKING_ALREADY_PAID", "Booking already has a successful payment");
+        }
+        if (latest != null && latest.getStatus() == PaymentStatus.PENDING && latest.getMethod() != PaymentMethod.VNPAY) {
+            throw new ConflictException("PAYMENT_IN_PROGRESS", "Another payment is active");
+        }
         if (latest != null && latest.getMethod() == PaymentMethod.VNPAY && latest.getStatus() == PaymentStatus.PENDING) {
             if (isConfirmationTimedOut(latest, now)) {
                 expirePayment(latest, booking);
@@ -155,64 +161,68 @@ public class VnPayService {
         if (!properties.isConfigured()) {
             return ipn("99", "VNPAY is not configured");
         }
-        try {
-            if (!VnPaySigner.verify(params, properties.getHashSecret())) {
-                return ipn("97", "Invalid signature");
-            }
-            if (!Objects.equals(properties.getTmnCode(), params.get("vnp_TmnCode"))) {
-                return ipn("97", "Invalid TmnCode");
-            }
-
-            String txnRef = params.get("vnp_TxnRef");
-            if (txnRef == null || txnRef.isBlank()) {
-                return ipn("99", "Invalid request");
-            }
-
-            PaymentEntity discovered = paymentRepository.findByProviderReferenceWithBooking(txnRef).orElse(null);
-            if (discovered == null) {
-                return ipn("01", "Order not found");
-            }
-
-            // Keep lock ordering consistent with user-initiated payment creation:
-            // booking first, then payment. This avoids a booking/payment lock inversion.
-            BookingEntity booking = bookingRepository.findByIdForUpdate(discovered.getBooking().getId())
-                    .orElseThrow(() -> new IllegalStateException("Booking disappeared during VNPAY IPN"));
-            PaymentEntity payment = paymentRepository.findByProviderReferenceForUpdate(txnRef)
-                    .orElseThrow(() -> new IllegalStateException("Payment disappeared during VNPAY IPN"));
-
-            long responseAmountVnd = parseVnpAmount(params.get("vnp_Amount"));
-            if (payment.getAmountVnd() == null || responseAmountVnd != payment.getAmountVnd()) {
-                return ipn("04", "Invalid amount");
-            }
-
-            if (payment.getStatus() != PaymentStatus.PENDING) {
-                return ipn("02", "Order already confirmed");
-            }
-
-            String responseCode = valueOrEmpty(params.get("vnp_ResponseCode"));
-            String transactionStatus = valueOrEmpty(params.get("vnp_TransactionStatus"));
-            String transactionNo = blankToNull(params.get("vnp_TransactionNo"));
-            boolean success = "00".equals(responseCode) && "00".equals(transactionStatus);
-            Instant paidAt = success ? parsePayDate(params.get("vnp_PayDate")) : null;
-
-            payment.completeProviderPayment(
-                    success ? PaymentStatus.SUCCESS : PaymentStatus.FAILED,
-                    transactionNo,
-                    responseCode,
-                    transactionStatus,
-                    paidAt
-            );
-            if (success) {
-                bookingLifecycleService.markSuccessful(booking);
-            } else {
-                bookingLifecycleService.markFailedAndRelease(booking);
-            }
-
-            return ipn("00", "Confirm Success");
-        } catch (RuntimeException exception) {
-            log.warn("VNPAY IPN processing failed: {}", exception.getMessage());
-            return ipn("99", "Unknown error");
+        if (!VnPaySigner.verify(params, properties.getHashSecret())) {
+            return ipn("97", "Invalid signature");
         }
+        if (!Objects.equals(properties.getTmnCode(), params.get("vnp_TmnCode"))) {
+            return ipn("97", "Invalid TmnCode");
+        }
+
+        String txnRef = params.get("vnp_TxnRef");
+        if (txnRef == null || txnRef.isBlank()) {
+            return ipn("99", "Invalid request");
+        }
+
+        Integer bookingId = paymentRepository.findBookingIdByProviderReference(txnRef).orElse(null);
+        if (bookingId == null) {
+            return ipn("01", "Order not found");
+        }
+
+        // Keep lock ordering consistent with user-initiated payment creation:
+        // booking first, then payment. This avoids a booking/payment lock inversion.
+        BookingEntity booking = bookingRepository.findByIdForUpdate(bookingId)
+                .orElseThrow(() -> new IllegalStateException("Booking disappeared during VNPAY IPN"));
+        PaymentEntity payment = paymentRepository.findByProviderReferenceForUpdate(txnRef)
+                .orElseThrow(() -> new IllegalStateException("Payment disappeared during VNPAY IPN"));
+
+        long responseAmountVnd = parseVnpAmount(params.get("vnp_Amount"));
+        if (payment.getAmountVnd() == null || responseAmountVnd != payment.getAmountVnd()) {
+            return ipn("04", "Invalid amount");
+        }
+
+        if (payment.getStatus() != PaymentStatus.PENDING) {
+            return ipn("02", "Order already confirmed");
+        }
+
+        if (booking.getStatus() == BookingStatus.SUCCESS
+                || booking.getStatus() == BookingStatus.FAILED || booking.isInventoryReleased()) {
+            // A provider confirmation may arrive after reservation expiry. Never
+            // resurrect released inventory; operators reconcile late charges.
+            payment.completeProviderPayment(PaymentStatus.FAILED, payment.getTransactionId(),
+                    "SUPERSEDED", "SUPERSEDED", null);
+            return ipn("02", "Reservation is already closed");
+        }
+
+        String responseCode = valueOrEmpty(params.get("vnp_ResponseCode"));
+        String transactionStatus = valueOrEmpty(params.get("vnp_TransactionStatus"));
+        String transactionNo = blankToNull(params.get("vnp_TransactionNo"));
+        boolean success = "00".equals(responseCode) && "00".equals(transactionStatus);
+        Instant paidAt = success ? parsePayDate(params.get("vnp_PayDate")) : null;
+
+        payment.completeProviderPayment(
+                success ? PaymentStatus.SUCCESS : PaymentStatus.FAILED,
+                transactionNo,
+                responseCode,
+                transactionStatus,
+                paidAt
+        );
+        if (success) {
+            bookingLifecycleService.markSuccessful(booking);
+        } else {
+            bookingLifecycleService.markFailedAndRelease(booking);
+        }
+
+        return ipn("00", "Confirm Success");
     }
 
     public boolean isValidReturn(Map<String, String> params) {

@@ -7,6 +7,8 @@ import com.example.bookinghotel.backend.exception.ConflictException;
 import com.example.bookinghotel.backend.exception.NotFoundException;
 import com.example.bookinghotel.backend.repository.RoomJpaRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 import java.time.Instant;
 
@@ -20,6 +22,7 @@ import java.time.Instant;
  * Callers hold a pessimistic lock on the booking row before invoking this service.
  */
 @Service
+@Transactional(propagation = Propagation.MANDATORY)
 public class BookingLifecycleService {
     private final RoomJpaRepository roomRepository;
 

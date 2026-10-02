@@ -23,7 +23,8 @@ sealed interface AuthUiState {
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val strings: AppStrings
 ) : ViewModel() {
     val session: StateFlow<AuthSession?> = authRepository.session.stateIn(
         viewModelScope,
@@ -38,7 +39,7 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             authRepository.restoreSession()
                 .onFailure { throwable ->
-                    _uiState.value = AuthUiState.Error(throwable.toAppError().userMessage())
+                    _uiState.value = AuthUiState.Error(throwable.toAppError().userMessage(strings))
                 }
             if (_uiState.value is AuthUiState.Loading) _uiState.value = AuthUiState.Idle
         }
@@ -65,11 +66,12 @@ class AuthViewModel @Inject constructor(
     }
 
     private fun submit(block: suspend () -> Result<AuthSession>) {
+        if (_uiState.value is AuthUiState.Loading) return
+        _uiState.value = AuthUiState.Loading
         viewModelScope.launch {
-            _uiState.value = AuthUiState.Loading
             block()
                 .onSuccess { _uiState.value = AuthUiState.Idle }
-                .onFailure { _uiState.value = AuthUiState.Error(it.toAppError().userMessage()) }
+                .onFailure { _uiState.value = AuthUiState.Error(it.toAppError().userMessage(strings)) }
         }
     }
 }

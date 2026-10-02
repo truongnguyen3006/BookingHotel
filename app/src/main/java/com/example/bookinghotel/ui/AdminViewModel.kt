@@ -1,5 +1,7 @@
 package com.example.bookinghotel.ui
 
+import com.example.bookinghotel.ui.AppStrings
+import com.example.bookinghotel.R
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.bookinghotel.data.AdminBooking
@@ -30,7 +32,8 @@ data class AdminUiState(
 
 @HiltViewModel
 class AdminViewModel @Inject constructor(
-    private val repository: AdminRepository
+    private val repository: AdminRepository,
+    private val strings: AppStrings
 ) : ViewModel() {
     private val _state = MutableStateFlow(AdminUiState())
     val state: StateFlow<AdminUiState> = _state.asStateFlow()
@@ -46,7 +49,7 @@ class AdminViewModel @Inject constructor(
                     _state.update {
                         it.copy(
                             loadingDashboard = false,
-                            message = throwable.toAppError().userMessage(),
+                            message = throwable.toAppError().userMessage(strings),
                             isError = true
                         )
                     }
@@ -65,7 +68,7 @@ class AdminViewModel @Inject constructor(
                     _state.update {
                         it.copy(
                             loadingRooms = false,
-                            message = throwable.toAppError().userMessage(),
+                            message = throwable.toAppError().userMessage(strings),
                             isError = true
                         )
                     }
@@ -84,7 +87,7 @@ class AdminViewModel @Inject constructor(
                     _state.update {
                         it.copy(
                             loadingBookings = false,
-                            message = throwable.toAppError().userMessage(),
+                            message = throwable.toAppError().userMessage(strings),
                             isError = true
                         )
                     }
@@ -94,11 +97,11 @@ class AdminViewModel @Inject constructor(
 
     fun updateRoom(roomId: Int, pricePerNight: Long, availableRooms: Int) {
         if (pricePerNight <= 0L) {
-            _state.update { it.copy(message = "Giá phòng phải lớn hơn 0.", isError = true) }
+            _state.update { it.copy(message = strings.get(R.string.gia_phong_phai_lon_hon_0), isError = true) }
             return
         }
         if (availableRooms < 0) {
-            _state.update { it.copy(message = "Số phòng còn lại không thể âm.", isError = true) }
+            _state.update { it.copy(message = strings.get(R.string.so_phong_con_lai_khong_the_am), isError = true) }
             return
         }
 
@@ -110,7 +113,7 @@ class AdminViewModel @Inject constructor(
                         current.copy(
                             rooms = current.rooms.map { if (it.id == updated.id) updated else it },
                             savingRoomId = null,
-                            message = "Đã cập nhật phòng ${updated.typeKey}.",
+                            message = strings.get(R.string.a_cap_nhat_phong, updated.typeKey),
                             isError = false
                         )
                     }
@@ -120,7 +123,7 @@ class AdminViewModel @Inject constructor(
                     _state.update {
                         it.copy(
                             savingRoomId = null,
-                            message = throwable.toAppError().userMessage(),
+                            message = throwable.toAppError().userMessage(strings),
                             isError = true
                         )
                     }

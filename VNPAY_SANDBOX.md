@@ -1,3 +1,5 @@
+> Use the separate staging service and `SPRING_PROFILES_ACTIVE=staging`. Set `STAGING_VNP_TMN_CODE`, `STAGING_VNP_HASH_SECRET`, `STAGING_VNP_RETURN_URL`, and the `STAGING_DB_*` / `STAGING_JWT_SECRET_B64` values from `backend/deploy/staging.env.example`. Placeholder URLs below are not deployments. Production must use its own merchant-approved endpoint and credentials.
+
 # VNPAY Sandbox integration — BookingHotel
 
 This phase upgrades the existing simulated payment flow with a real VNPAY Sandbox redirect + IPN confirmation flow.
@@ -31,7 +33,7 @@ Set these in the **backend service -> Variables** tab. Never commit the real Has
 VNP_TMN_CODE=B0X8KC9I
 VNP_HASH_SECRET=<your sandbox HashSecret>
 VNP_PAY_URL=https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
-VNP_RETURN_URL=https://bookinghotel-production.up.railway.app/api/payments/vnpay/return
+VNP_RETURN_URL=https://<actual-staging-backend>/api/payments/vnpay/return
 VNP_EXPIRE_MINUTES=15
 VNP_CONFIRMATION_GRACE_SECONDS=120
 BOOKING_RESERVATION_MINUTES=15
@@ -47,7 +49,7 @@ After adding/changing variables, redeploy the backend. Flyway will apply the pen
 Provide/configure this HTTPS endpoint for the sandbox merchant:
 
 ```text
-https://bookinghotel-production.up.railway.app/api/payments/vnpay/ipn
+https://<actual-staging-backend>/api/payments/vnpay/ipn
 ```
 
 VNPAY's integration guide requires the merchant to implement an HTTPS IPN URL and provide it to VNPAY after implementation. If the sandbox portal does not expose a field for it, send this exact URL to the sandbox/integration contact that issued the merchant credentials.
@@ -55,7 +57,7 @@ VNPAY's integration guide requires the merchant to implement an HTTPS IPN URL an
 The browser Return URL is:
 
 ```text
-https://bookinghotel-production.up.railway.app/api/payments/vnpay/return
+https://<actual-staging-backend>/api/payments/vnpay/return
 ```
 
 ## Backend endpoints
@@ -113,8 +115,8 @@ Build the Android release against Railway:
 
 ```powershell
 cd D:\BookingHotel2\BookingHotel2
-$env:BOOKING_API_PROD_URL="https://bookinghotel-production.up.railway.app/"
-.\gradlew assembleRelease
+$env:BOOKING_API_STAGING_URL="https://<actual-staging-backend>/"
+.\gradlew assembleStaging
 ```
 
 Use the signed release APK on a real Android phone. The local Spring Boot server can be stopped while testing.

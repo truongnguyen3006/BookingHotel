@@ -14,3 +14,6 @@ security:
   jwt:
     # Local-development key only. Staging/production profiles require JWT_SECRET_B64.
     secret-base64: ${JWT_SECRET_B64:Ym9va2luZy1ob3RlbC1kZXYtc2VjcmV0LWtleS1tdXN0LWJlLWF0LWxlYXN0LTMyLWJ5dGVz}
+
+payment:
+  demo-enabled: ${DEMO_PAYMENTS_ENABLED:true}

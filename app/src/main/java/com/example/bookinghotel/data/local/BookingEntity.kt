@@ -21,5 +21,6 @@ data class BookingEntity(
     @ColumnInfo(defaultValue = "1") val nights: Int = 1,
     val paymentMethod: String? = null,
     val transactionId: String? = null,
-    val paidAt: Long? = null
+    val paidAt: Long? = null,
+    @ColumnInfo(defaultValue = "''") val ownerSessionId: String = ""
 )

@@ -1,5 +1,12 @@
 package com.example.bookinghotel.data.repository
 
+import com.example.bookinghotel.data.auth.AuthSession
+import com.example.bookinghotel.data.auth.SessionStore
+import com.example.bookinghotel.data.auth.StaleSessionException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.CancellationException
 import com.example.bookinghotel.data.Booking
 import com.example.bookinghotel.data.PaymentMethod
 import com.example.bookinghotel.data.PaymentResult
@@ -24,13 +31,16 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
 
 class RetrofitRoomRepository @Inject constructor(
     private val api: HotelApiService,
     private val bookingDao: BookingDao,
-    private val roomCacheDao: RoomCacheDao
+    private val roomCacheDao: RoomCacheDao,
+    private val sessionStore: SessionStore
 ) : RoomRepository {
+
+    private val catalogMutex = Mutex()
+    private val privateDataMutex = Mutex()
 
     private val _rooms = MutableStateFlow<List<Room>>(emptyList())
     override val rooms: StateFlow<List<Room>> = _rooms.asStateFlow()
@@ -42,8 +52,9 @@ class RetrofitRoomRepository @Inject constructor(
     override val lastRoomSyncAt: StateFlow<Long?> = _lastRoomSyncAt.asStateFlow()
 
     override val bookingHistory: Flow<List<Booking>> =
-        bookingDao.observeBookings().map { entities ->
-            entities.map { it.toDomain() }
+        combine(sessionStore.session, bookingDao.observeBookings()) { session, entities ->
+            entities.filter { session != null && it.ownerSessionId == session.sessionId }
+                .map { it.toDomain() }
         }
 
     /**
@@ -51,15 +62,15 @@ class RetrofitRoomRepository @Inject constructor(
      * 1. Load cached rooms immediately when available.
      * 2. Try to refresh from the remote API.
      * 3. On remote success, replace the cache and publish fresh data.
-     * 4. On remote failure, keep cached data and consider the refresh usable.
+     * 4. On remote failure, keep cached data and mark the source as CACHE.
      *    The failure is returned only when there is no cached data to fall back to.
      */
-    override suspend fun refreshRooms(): Result<Unit> {
+    override suspend fun refreshRooms(): Result<Unit> = catalogMutex.withLock {
         val cachedRooms = runCatching {
             roomCacheDao.getRooms()
         }.getOrDefault(emptyList())
 
-        if (cachedRooms.isNotEmpty()) {
+        if (_rooms.value.isEmpty() && cachedRooms.isNotEmpty()) {
             _rooms.value = cachedRooms.map { it.toDomain() }
             _roomDataSource.value = RoomDataSource.CACHE
             _lastRoomSyncAt.value = runCatching {
@@ -67,7 +78,7 @@ class RetrofitRoomRepository @Inject constructor(
             }.getOrNull()
         }
 
-        return syncRoomsFromNetwork().recoverCatching { throwable ->
+        syncRoomsLocked().recoverCatching { throwable ->
             if (_rooms.value.isNotEmpty()) {
                 // Cached content remains usable while the device/server is offline.
                 Unit
@@ -82,7 +93,9 @@ class RetrofitRoomRepository @Inject constructor(
      * WorkManager uses this method so failed sync attempts can be retried instead of
      * being hidden by the offline cache fallback used by refreshRooms().
      */
-    override suspend fun syncRoomsFromNetwork(): Result<Unit> = runCatching {
+    override suspend fun syncRoomsFromNetwork(): Result<Unit> = catalogMutex.withLock { syncRoomsLocked() }
+
+    private suspend fun syncRoomsLocked(): Result<Unit> = runCatching {
         val freshRooms = api.getRooms().map { it.toDomain() }
         val syncedAt = System.currentTimeMillis()
 
@@ -93,29 +106,26 @@ class RetrofitRoomRepository @Inject constructor(
         _rooms.value = freshRooms
         _roomDataSource.value = RoomDataSource.NETWORK
         _lastRoomSyncAt.value = syncedAt
-    }
+    }.onFailure { _roomDataSource.value = if (_rooms.value.isEmpty()) RoomDataSource.EMPTY else RoomDataSource.CACHE }
+        .propagateCancellation()
 
-    override suspend fun refreshBookingHistory(): Result<Unit> = runCatching {
+    override suspend fun refreshBookingHistory(): Result<Unit> = authenticatedRun { session ->
         val responses = api.getBookings()
-        bookingDao.clearBookings()
-        responses.forEach { response ->
-            val room = response.room.toDomain()
-            val booking = Booking(
-                bookingId = response.bookingId,
-                roomId = room.id,
-                roomTypeKey = room.typeKey,
-                quantity = response.quantity,
-                pricePerNight = room.pricePerNight,
-                totalPrice = response.totalPrice,
-                status = response.status,
-                createdAt = response.createdAt.takeIf { it > 0L } ?: System.currentTimeMillis(),
-                checkInDate = response.checkInDate,
-                checkOutDate = response.checkOutDate,
-                guests = response.guests,
-                nights = response.nights
-            )
-            bookingDao.insertBooking(booking.toEntity())
+        sessionStore.withSession(session) {
+            bookingDao.replaceForSession(session.sessionId, responses.map { response ->
+                val room = response.room.toDomain()
+                Booking(
+                    bookingId = response.bookingId, roomId = room.id, roomTypeKey = room.typeKey,
+                    quantity = response.quantity, pricePerNight = room.pricePerNight,
+                    totalPrice = response.totalPrice, status = response.status,
+                    createdAt = response.createdAt, checkInDate = response.checkInDate,
+                    checkOutDate = response.checkOutDate, guests = response.guests, nights = response.nights
+                ).toEntity(session.sessionId)
+            })
         }
+        // Expiration/IPN can change stock without a foreground payment action.
+        syncRoomsFromNetwork()
+        Unit
     }
 
     override fun getRoomById(roomId: Int): Room? {
@@ -143,7 +153,7 @@ class RetrofitRoomRepository @Inject constructor(
         val normalizedCheckOut = checkOutDate.takeIf { it > normalizedCheckIn }
             ?: normalizedCheckIn + DAY_MS
 
-        return runCatching {
+        return authenticatedRun { session -> catalogMutex.withLock {
             val response = api.createBooking(
                 BookingRequestDto(
                     roomId = roomId,
@@ -154,6 +164,7 @@ class RetrofitRoomRepository @Inject constructor(
                 )
             )
 
+            sessionStore.withSession(session) {
             val updatedRoom = response.room.toDomain()
             _rooms.value = _rooms.value.map { room ->
                 if (room.id == updatedRoom.id) updatedRoom else room
@@ -182,9 +193,10 @@ class RetrofitRoomRepository @Inject constructor(
                 nights = nights
             )
 
-            val localId = bookingDao.insertBooking(booking.toEntity())
+            val localId = bookingDao.insertBooking(booking.toEntity(session.sessionId))
             booking.copy(localId = localId)
-        }
+            }
+        } }
     }
 
     override suspend fun payBooking(
@@ -193,7 +205,7 @@ class RetrofitRoomRepository @Inject constructor(
         simulateFailure: Boolean,
         idempotencyKey: String
     ): Result<PaymentResult> {
-        return runCatching {
+        return authenticatedRun { session -> catalogMutex.withLock {
             val response = api.payBooking(
                 bookingId = booking.bookingId,
                 request = PaymentRequestDto(
@@ -203,6 +215,7 @@ class RetrofitRoomRepository @Inject constructor(
                 )
             )
 
+            sessionStore.withSession(session) {
             bookingDao.updatePaymentDetails(
                 localId = booking.localId,
                 status = response.status,
@@ -211,6 +224,8 @@ class RetrofitRoomRepository @Inject constructor(
                 paidAt = response.paidAt
             )
 
+            }
+            syncRoomsLocked() // Payment response remains successful if catalog refresh is offline.
             PaymentResult(
                 bookingId = response.bookingId,
                 status = response.status,
@@ -220,14 +235,14 @@ class RetrofitRoomRepository @Inject constructor(
                 message = response.message,
                 paidAt = response.paidAt
             )
-        }
+        } }
     }
 
 
     override suspend fun createVnPayPayment(
         booking: Booking,
         idempotencyKey: String
-    ): Result<VnPayPaymentSession> = runCatching {
+    ): Result<VnPayPaymentSession> = authenticatedRun { session -> catalogMutex.withLock {
         val response = api.createVnPayPayment(
             bookingId = booking.bookingId,
             request = VnPayCreateRequestDto(
@@ -235,24 +250,19 @@ class RetrofitRoomRepository @Inject constructor(
             )
         )
 
-        if (response.status != "PENDING" || response.paymentUrl.isBlank()) {
-            bookingDao.updatePaymentDetails(
-                localId = booking.localId,
-                status = "FAILED",
-                paymentMethod = PaymentMethod.VNPAY.name,
-                transactionId = null,
-                paidAt = null
-            )
-            throw IllegalStateException("VNPAY payment session is no longer active. Please retry.")
+        sessionStore.withSession(session) {
+            // An expired URL during confirmation grace is still PROCESSING, not FAILED.
+            val status = when (response.status) {
+                "SUCCESS" -> "SUCCESS"
+                "FAILED" -> "FAILED"
+                else -> "PROCESSING"
+            }
+            bookingDao.updatePaymentDetails(booking.localId, status, PaymentMethod.VNPAY.name, null, null)
         }
-
-        bookingDao.updatePaymentDetails(
-            localId = booking.localId,
-            status = "PROCESSING",
-            paymentMethod = PaymentMethod.VNPAY.name,
-            transactionId = null,
-            paidAt = null
-        )
+        syncRoomsLocked()
+        if (response.status != "PENDING" || response.paymentUrl.isBlank()) {
+            throw IllegalStateException("VNPAY payment session is closed. Check its backend status before retrying.")
+        }
 
         VnPayPaymentSession(
             bookingId = response.bookingId,
@@ -261,11 +271,11 @@ class RetrofitRoomRepository @Inject constructor(
             amountVnd = response.amountVnd,
             expiresAt = response.expiresAt
         )
-    }
+    } }
 
     override suspend fun getVnPayPaymentStatus(
         booking: Booking
-    ): Result<VnPayPaymentStatus> = runCatching {
+    ): Result<VnPayPaymentStatus> = authenticatedRun { session -> catalogMutex.withLock {
         val response = api.getVnPayPaymentStatus(booking.bookingId)
         val bookingStatus = when (response.status) {
             "SUCCESS" -> "SUCCESS"
@@ -273,6 +283,7 @@ class RetrofitRoomRepository @Inject constructor(
             else -> "PROCESSING"
         }
 
+        sessionStore.withSession(session) {
         bookingDao.updatePaymentDetails(
             localId = booking.localId,
             status = bookingStatus,
@@ -280,6 +291,9 @@ class RetrofitRoomRepository @Inject constructor(
             transactionId = response.transactionId,
             paidAt = response.paidAt
         )
+
+        }
+        syncRoomsLocked()
 
         VnPayPaymentStatus(
             bookingId = response.bookingId,
@@ -291,6 +305,20 @@ class RetrofitRoomRepository @Inject constructor(
             message = response.message,
             paidAt = response.paidAt
         )
+    } }
+
+    private suspend fun <T> authenticatedRun(block: suspend (AuthSession) -> T): Result<T> {
+        val expected = sessionStore.currentSession() ?: return Result.failure(StaleSessionException())
+        return runCatching {
+            privateDataMutex.withLock {
+                sessionStore.withSession(expected) { Unit }
+                block(expected)
+            }
+        }.propagateCancellation()
+    }
+
+    private fun <T> Result<T>.propagateCancellation(): Result<T> = onFailure {
+        if (it is CancellationException) throw it
     }
 
     private fun startOfToday(): Long {

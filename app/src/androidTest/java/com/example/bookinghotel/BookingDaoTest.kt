@@ -35,6 +35,23 @@ class BookingDaoTest {
     }
 
     @Test
+    fun atomicHistoryReplacementPreservesLocalIdAndReceiptAndSeparatesOwners() = runBlocking {
+        val dao = database.bookingDao()
+        val row = BookingEntity(remoteBookingId = 10, roomId = 1, roomTypeKey = "standard",
+            quantity = 1, pricePerNight = 1250000, totalPrice = 1250000,
+            status = "SUCCESS", createdAt = 1000, ownerSessionId = "session-a",
+            paymentMethod = "VNPAY", transactionId = "provider-10", paidAt = 2000)
+        val id = dao.insertBooking(row)
+        dao.replaceForSession("session-a", listOf(row.copy(transactionId = null, paidAt = null)))
+        val sameOwner = dao.getBookingsForSession("session-a").single()
+        assertEquals(id, sameOwner.localId)
+        assertEquals("provider-10", sameOwner.transactionId)
+        dao.replaceForSession("session-b", listOf(row.copy(remoteBookingId = 20, ownerSessionId = "session-b")))
+        assertEquals(0, dao.getBookingsForSession("session-a").size)
+        assertEquals(20, dao.getBookingsForSession("session-b").single().remoteBookingId)
+    }
+
+    @Test
     fun insertThenUpdateStatus_persistsExpectedBooking() = runBlocking {
         val dao = database.bookingDao()
         val localId = dao.insertBooking(

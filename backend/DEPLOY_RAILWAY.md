@@ -74,9 +74,23 @@ The first endpoint should return an `UP` health status and the second should ret
 Copy the generated HTTPS backend URL, including the trailing `/`, for example:
 
 ```text
-https://booking-hotel-production.up.railway.app/
+https://<actual-production-backend-domain>/
 ```
 
 Use it as `BOOKING_API_PROD_URL` when building locally, and create the same **Repository Variable** under GitHub `Settings -> Secrets and variables -> Actions -> Variables` for the Android Release workflow.
 
 Do not put DB credentials, JWT secrets, or signing passwords into Git.
+
+
+## Phase 5 environment separation
+
+Staging must use a separate backend service and MySQL service. See `deploy/staging.env.example`;
+set `SPRING_PROFILES_ACTIVE=staging` and the required `STAGING_DB_URL`, `STAGING_DB_USERNAME`,
+`STAGING_DB_PASSWORD`, `STAGING_JWT_SECRET_B64`, `STAGING_VNP_TMN_CODE`,
+`STAGING_VNP_HASH_SECRET`, `STAGING_VNP_RETURN_URL` values. Configure the staging Sandbox IPN URL
+using the **actual** staging service domain. Build with `BOOKING_API_STAGING_URL` set to that domain.
+
+Production (`prod`) continues using `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET_B64`,
+`VNP_TMN_CODE`, `VNP_HASH_SECRET`, `VNP_PAY_URL`, `VNP_RETURN_URL`. CARD/QR demo payments are
+disabled in this profile. VNPAY uses native VND: `vnp_Amount = amountVnd * 100`.
+No deployment is performed by this patch; complete all gates in `PHASE5_FINAL_AUDIT_FIXES.md` first.

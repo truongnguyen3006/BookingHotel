@@ -13,6 +13,7 @@ import com.example.bookinghotel.backend.exception.NotFoundException;
 import com.example.bookinghotel.backend.repository.BookingJpaRepository;
 import com.example.bookinghotel.backend.repository.PaymentJpaRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -21,6 +22,9 @@ import java.util.UUID;
 
 @Service
 public class PaymentService {
+    @Value("${payment.demo-enabled:false}")
+    private boolean demoPaymentsEnabled = false;
+
     private final BookingJpaRepository bookingRepository;
     private final PaymentJpaRepository paymentRepository;
     private final CurrentUserService currentUserService;
@@ -40,12 +44,19 @@ public class PaymentService {
 
     @Transactional
     public PaymentResponse pay(int bookingId, PaymentRequest request) {
+        if (!demoPaymentsEnabled) {
+            throw new BadRequestException("DEMO_PAYMENT_DISABLED", "CARD/QR demo payments are disabled in this environment");
+        }
         Long userId = currentUserService.requireUser().getId();
         BookingEntity booking = bookingRepository.findOwnedByIdForUpdate(bookingId, userId)
                 .orElseThrow(() -> new NotFoundException("BOOKING_NOT_FOUND", "Booking not found"));
 
+        PaymentMethod method = parseMethod(request.method());
         var existing = paymentRepository.findByBooking_IdAndIdempotencyKey(bookingId, request.idempotencyKey());
         if (existing.isPresent()) {
+            if (existing.get().getMethod() != method) {
+                throw new ConflictException("PAYMENT_KEY_REUSED", "Idempotency key belongs to another payment method");
+            }
             return toResponse(existing.get(), "Idempotent payment result");
         }
 
@@ -53,7 +64,13 @@ public class PaymentService {
             throw new ConflictException("BOOKING_ALREADY_PAID", "Booking already paid");
         }
 
-        PaymentMethod method = parseMethod(request.method());
+        PaymentEntity latest = paymentRepository.findLatestByBookingIdForUpdate(bookingId).orElse(null);
+        if (latest != null && latest.getStatus() == PaymentStatus.PENDING) {
+            throw new ConflictException("PAYMENT_IN_PROGRESS", "An active payment must finish or expire before another attempt");
+        }
+        if (latest != null && latest.getStatus() == PaymentStatus.SUCCESS) {
+            throw new ConflictException("BOOKING_ALREADY_PAID", "Booking already has a successful payment");
+        }
         bookingLifecycleService.ensureInventoryReservedForRetry(booking, null);
         bookingLifecycleService.markProcessing(booking);
         bookingRepository.save(booking);

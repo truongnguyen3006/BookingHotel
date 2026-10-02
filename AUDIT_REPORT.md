@@ -1,5 +1,8 @@
 # Comprehensive Audit Report for Booking Hotel
 
+> Historical audit from before Phase 1–4. Its findings describe the old code, not current behavior. See `PHASE5_FINAL_AUDIT_FIXES.md` for current fixes, tests and release gates. Old conversion references below are migration history only; runtime prices are native VND and `vnp_Amount = amountVnd * 100`.
+
+
 ### 1. Executive Summary
 
 - **Total Critical issues**: 2

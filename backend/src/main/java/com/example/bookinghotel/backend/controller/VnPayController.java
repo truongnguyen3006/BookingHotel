@@ -46,13 +46,21 @@ public class VnPayController {
 
     @GetMapping("/payments/vnpay/ipn")
     public Map<String, String> ipn(@RequestParam Map<String, String> params) {
-        return vnPayService.processIpn(params);
+        try {
+            // Catch outside the service's transactional proxy so a partial payment /
+            // booking / inventory update is rolled back before acknowledging failure.
+            return vnPayService.processIpn(params);
+        } catch (RuntimeException exception) {
+            org.slf4j.LoggerFactory.getLogger(VnPayController.class)
+                    .error("VNPAY IPN transaction rolled back", exception);
+            return Map.of("RspCode", "99", "Message", "Unknown error");
+        }
     }
 
     @GetMapping(value = "/payments/vnpay/return", produces = MediaType.TEXT_HTML_VALUE)
     public String paymentReturn(@RequestParam Map<String, String> params) {
         String deepLink = vnPayService.returnDeepLink(params);
-        String message = vnPayService.returnMessage(params);
+        String message = org.springframework.web.util.HtmlUtils.htmlEscape(vnPayService.returnMessage(params));
         return """
                 <!doctype html>
                 <html lang="vi">
@@ -68,7 +76,7 @@ public class VnPayController {
                 </head>
                 <body>
                   <div class="card">
-                    <h2>BookingHotel - VNPAY Sandbox</h2>
+                    <h2>BookingHotel - VNPAY</h2>
                     <p>%s</p>
                     <p>Ket qua chinh thuc duoc backend xac nhan qua IPN cua VNPAY.</p>
                     <a href="%s">Quay lai ung dung BookingHotel</a>

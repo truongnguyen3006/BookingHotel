@@ -28,9 +28,11 @@ class TokenRefreshCoordinatorTest {
 
         val first = async { attempt() }
         val second = async { attempt() }
+        val third = async { attempt() }
 
         assertEquals("new-token", first.await()?.value)
         assertEquals("new-token", second.await()?.value)
+        assertEquals("new-token", third.await()?.value)
         assertEquals(1, refreshCalls.get())
     }
 }

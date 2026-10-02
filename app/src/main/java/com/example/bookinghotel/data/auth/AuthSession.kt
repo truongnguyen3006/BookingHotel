@@ -11,5 +11,6 @@ data class AuthSession(
     val accessToken: String,
     val refreshToken: String,
     val accessTokenExpiresAt: Long,
-    val user: UserProfile
+    val user: UserProfile,
+    val sessionId: String = java.util.UUID.randomUUID().toString()
 )

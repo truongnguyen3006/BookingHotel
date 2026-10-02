@@ -35,8 +35,15 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x gradlew
 
-      - name: Lint, unit test, and build debug/staging
-        run: ./gradlew --no-daemon lintDebug testDebugUnitTest assembleDebug assembleStaging
+      - name: Lint, unit test, and build debug
+        run: ./gradlew --no-daemon lintDebug testDebugUnitTest assembleDebug
+
+      - name: Build staging when its backend is configured
+        if: vars.BOOKING_API_STAGING_URL != ''
+        env:
+          BOOKING_API_STAGING_URL: ${{ vars.BOOKING_API_STAGING_URL }}
+          BOOKING_API_PROD_URL: ${{ vars.BOOKING_API_PROD_URL }}
+        run: ./gradlew --no-daemon assembleStaging
 
       - name: Upload Android APKs
         uses: actions/upload-artifact@v7

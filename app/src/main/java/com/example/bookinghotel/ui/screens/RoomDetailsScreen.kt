@@ -1,5 +1,6 @@
 package com.example.bookinghotel.ui.screens
 
+import com.example.bookinghotel.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -64,6 +65,7 @@ fun RoomDetailsScreen(viewModel: BookingViewModel, navController: NavController)
 
     LaunchedEffect(bookingState) {
         if (bookingState is BookingUiState.Success) {
+            showConfirmDialog = false
             navController.navigate(Screen.Summary.route)
             viewModel.consumeBookingSuccess()
         }
@@ -94,6 +96,13 @@ fun RoomDetailsScreen(viewModel: BookingViewModel, navController: NavController)
         )
     }
 
+    if (room == null) {
+        Column(Modifier.fillMaxSize().padding(24.dp)) {
+            Text(stringResource(com.example.bookinghotel.R.string.room_missing))
+            Button(onClick = { navController.popBackStack() }) { Text(stringResource(com.example.bookinghotel.R.string.back)) }
+        }
+    }
+
     room?.let { currentRoom ->
         val quantityValue = quantity.toIntOrNull() ?: 0
         val guestValue = guests.toIntOrNull() ?: 0
@@ -107,29 +116,33 @@ fun RoomDetailsScreen(viewModel: BookingViewModel, navController: NavController)
 
         val validationError = when {
             quantityValue <= 0 -> stringResource(com.example.bookinghotel.R.string.quantity_min_error)
-            quantityValue > currentRoom.availableRooms -> "Số lượng yêu cầu vượt quá số phòng sẵn có!"
-            guestValue <= 0 -> "Số khách tối thiểu là 1."
-            checkInDate < today -> "Ngày nhận phòng không được ở trong quá khứ."
-            checkOutDate <= checkInDate -> "Ngày trả phòng phải sau ngày nhận phòng."
+            quantityValue > currentRoom.availableRooms -> stringResource(R.string.so_luong_yeu_cau_vuot_qua_so_phong_san_co)
+            guestValue <= 0 -> stringResource(R.string.so_khach_toi_thieu_la_1)
+            checkInDate < today -> stringResource(R.string.ngay_nhan_phong_khong_uoc_o_trong_qua_khu)
+            checkOutDate <= checkInDate -> stringResource(R.string.ngay_tra_phong_phai_sau_ngay_nhan_phong)
             else -> ""
         }
 
         if (showConfirmDialog) {
             AlertDialog(
-                onDismissRequest = { showConfirmDialog = false },
-                title = { Text("Xác nhận đặt phòng") },
+                onDismissRequest = { if (bookingState !is BookingUiState.Loading) showConfirmDialog = false },
+                title = { Text(stringResource(R.string.xac_nhan_at_phong)) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(stringResource(currentRoom.type), fontWeight = FontWeight.Bold)
-                        Text("${checkInDate.toDateLabel()} → ${checkOutDate.toDateLabel()} ($nights đêm)")
-                        Text("$quantityValue phòng • $guestValue khách")
-                        Text("Tổng dự kiến: ${estimatedTotal.toCurrencyLabel()}")
+                        Text(stringResource(R.string.em_bec65d, checkInDate.toDateLabel(), checkOutDate.toDateLabel(), nights))
+                        Text(stringResource(R.string.phong_khach_64f8d0, quantityValue, guestValue))
+                        Text(stringResource(R.string.tong_du_kien, estimatedTotal.toCurrencyLabel()))
+                        if (bookingState is BookingUiState.Error) {
+                            Text((bookingState as BookingUiState.Error).message,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.testTag("booking_confirmation_error"))
+                        }
                     }
                 },
                 confirmButton = {
                     Button(
                         onClick = {
-                            showConfirmDialog = false
                             viewModel.bookRoom(
                                 quantity = quantityValue,
                                 checkInDate = checkInDate,
@@ -137,14 +150,17 @@ fun RoomDetailsScreen(viewModel: BookingViewModel, navController: NavController)
                                 guests = guestValue
                             )
                         },
+                        enabled = bookingState !is BookingUiState.Loading && validationError.isEmpty(),
                         modifier = Modifier.testTag("confirm_booking_button")
                     ) {
-                        Text("Xác nhận")
+                        if (bookingState is BookingUiState.Loading) {
+                            CircularProgressIndicator(modifier = Modifier.testTag("booking_confirmation_loading"))
+                        } else Text(stringResource(R.string.xac_nhan))
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showConfirmDialog = false }) {
-                        Text("Kiểm tra lại")
+                    TextButton(onClick = { showConfirmDialog = false }, enabled = bookingState !is BookingUiState.Loading) {
+                        Text(stringResource(R.string.kiem_tra_lai))
                     }
                 }
             )
@@ -168,41 +184,43 @@ fun RoomDetailsScreen(viewModel: BookingViewModel, navController: NavController)
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "${currentRoom.pricePerNight.toCurrencyLabel()}/đêm",
+                        text = stringResource(R.string.em, currentRoom.pricePerNight.toCurrencyLabel()),
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
                     )
-                    Text("Tiện nghi: ${currentRoom.amenities.joinToString()}")
-                    Text("Số phòng trống: ${currentRoom.availableRooms}")
+                    Text(stringResource(R.string.tien_nghi, currentRoom.amenities.joinToString()))
+                    Text(stringResource(R.string.so_phong_trong, currentRoom.availableRooms))
                 }
             }
 
-            Text("Thời gian lưu trú", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.thoi_gian_luu_tru), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 OutlinedButton(
+                    enabled = bookingState !is BookingUiState.Loading,
                     onClick = { showCheckInPicker = true },
                     modifier = Modifier.weight(1f).testTag("checkin_button")
                 ) {
                     Column(horizontalAlignment = Alignment.Start) {
-                        Text("Nhận phòng", style = MaterialTheme.typography.labelSmall)
+                        Text(stringResource(R.string.nhan_phong), style = MaterialTheme.typography.labelSmall)
                         Text(checkInDate.toDateLabel())
                     }
                 }
                 OutlinedButton(
+                    enabled = bookingState !is BookingUiState.Loading,
                     onClick = { showCheckOutPicker = true },
                     modifier = Modifier.weight(1f).testTag("checkout_button")
                 ) {
                     Column(horizontalAlignment = Alignment.Start) {
-                        Text("Trả phòng", style = MaterialTheme.typography.labelSmall)
+                        Text(stringResource(R.string.tra_phong), style = MaterialTheme.typography.labelSmall)
                         Text(checkOutDate.toDateLabel())
                     }
                 }
             }
 
-            Text("$nights đêm", color = MaterialTheme.colorScheme.secondary)
+            Text(stringResource(R.string.em_b7c0ce, nights), color = MaterialTheme.colorScheme.secondary)
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -211,7 +229,7 @@ fun RoomDetailsScreen(viewModel: BookingViewModel, navController: NavController)
                 OutlinedTextField(
                     value = quantity,
                     onValueChange = { quantity = it },
-                    label = { Text("Số phòng") },
+                    label = { Text(stringResource(R.string.so_phong)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                     isError = quantityValue <= 0 || quantityValue > currentRoom.availableRooms,
@@ -223,7 +241,7 @@ fun RoomDetailsScreen(viewModel: BookingViewModel, navController: NavController)
                 OutlinedTextField(
                     value = guests,
                     onValueChange = { guests = it },
-                    label = { Text("Số khách") },
+                    label = { Text(stringResource(R.string.so_khach)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                     isError = guestValue <= 0,
@@ -245,7 +263,8 @@ fun RoomDetailsScreen(viewModel: BookingViewModel, navController: NavController)
             if (bookingState is BookingUiState.Error) {
                 Text(
                     text = (bookingState as BookingUiState.Error).message,
-                    color = MaterialTheme.colorScheme.error
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.testTag("booking_error")
                 )
             }
 
@@ -254,8 +273,8 @@ fun RoomDetailsScreen(viewModel: BookingViewModel, navController: NavController)
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text("Chi phí dự kiến", fontWeight = FontWeight.Bold)
-                    Text("${currentRoom.pricePerNight.toCurrencyLabel()} × $nights đêm × $quantityValue phòng")
+                    Text(stringResource(R.string.chi_phi_du_kien), fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.em_phong, currentRoom.pricePerNight.toCurrencyLabel(), nights, quantityValue))
                     Text(
                         text = estimatedTotal.toCurrencyLabel(),
                         style = MaterialTheme.typography.titleLarge,
@@ -281,7 +300,7 @@ fun RoomDetailsScreen(viewModel: BookingViewModel, navController: NavController)
                     .fillMaxWidth()
                     .testTag("book_button")
             ) {
-                Text("Đặt phòng • ${estimatedTotal.toCurrencyLabel()}")
+                Text(stringResource(R.string.at_phong, estimatedTotal.toCurrencyLabel()))
             }
 
             OutlinedButton(
@@ -289,7 +308,7 @@ fun RoomDetailsScreen(viewModel: BookingViewModel, navController: NavController)
                 enabled = bookingState !is BookingUiState.Loading,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Hủy")
+                Text(stringResource(R.string.huy))
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -316,12 +335,12 @@ private fun BookingDatePickerDialog(
                     datePickerState.selectedDateMillis?.let(onDateSelected)
                 }
             ) {
-                Text("Chọn")
+                Text(stringResource(R.string.chon))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Hủy")
+                Text(stringResource(R.string.huy))
             }
         }
     ) {

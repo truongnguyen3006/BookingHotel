@@ -23,7 +23,9 @@ object NetworkModule {
     @Provides
     @Singleton
     @Named("auth")
-    fun provideAuthOkHttpClient(): OkHttpClient = OkHttpClient.Builder().build()
+    fun provideAuthOkHttpClient(): OkHttpClient = OkHttpClient.Builder()
+        .callTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+        .build()
 
     @Provides
     @Singleton
@@ -46,6 +48,7 @@ object NetworkModule {
         authInterceptor: AuthInterceptor,
         tokenAuthenticator: TokenAuthenticator
     ): OkHttpClient = OkHttpClient.Builder()
+        .callTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
         .addInterceptor(authInterceptor)
         .authenticator(tokenAuthenticator)
         .build()

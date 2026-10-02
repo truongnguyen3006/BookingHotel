@@ -3,13 +3,26 @@ spring:
     activate:
       on-profile: staging
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: ${STAGING_DB_URL}
+    username: ${STAGING_DB_USERNAME}
+    password: ${STAGING_DB_PASSWORD}
     hikari:
       maximum-pool-size: ${DB_POOL_MAX:10}
       minimum-idle: ${DB_POOL_MIN:2}
 
 security:
   jwt:
-    secret-base64: ${JWT_SECRET_B64}
+    secret-base64: ${STAGING_JWT_SECRET_B64}
+
+server:
+  port: ${PORT:8080}
+  forward-headers-strategy: framework
+
+vnpay:
+  tmn-code: ${STAGING_VNP_TMN_CODE:}
+  hash-secret: ${STAGING_VNP_HASH_SECRET:}
+  pay-url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+  return-url: ${STAGING_VNP_RETURN_URL}
+
+payment:
+  demo-enabled: ${STAGING_DEMO_PAYMENTS_ENABLED:true}

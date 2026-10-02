@@ -15,6 +15,18 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
+import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.remember
+import androidx.compose.ui.res.stringResource
+import com.example.bookinghotel.R
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -31,6 +43,7 @@ import com.example.bookinghotel.ui.AdminViewModel
 import com.example.bookinghotel.ui.AuthViewModel
 import com.example.bookinghotel.ui.BookingViewModel
 import com.example.bookinghotel.ui.Screen
+import com.example.bookinghotel.ui.paymentReturnBookingId
 import com.example.bookinghotel.ui.screens.AuthScreen
 import com.example.bookinghotel.ui.screens.BookingHistoryScreen
 import com.example.bookinghotel.ui.screens.BookingSummaryScreen
@@ -56,20 +69,22 @@ fun BookingHotelApp(
         return
     }
 
-    if (currentSession.user.role.equals("ADMIN", ignoreCase = true)) {
-        AdminBookingHotelAuthenticatedContent(
-            modifier = modifier,
-            session = currentSession,
-            onLogout = authViewModel::logout
-        )
-    } else {
-        UserBookingHotelEntry(
-            modifier = modifier,
-            session = currentSession,
-            onLogout = authViewModel::logout,
-            paymentReturnUri = paymentReturnUri,
-            onPaymentReturnConsumed = onPaymentReturnConsumed
-        )
+    key(currentSession.sessionId) {
+        if (currentSession.user.role.equals("ADMIN", ignoreCase = true)) {
+            AdminBookingHotelAuthenticatedContent(
+                modifier = modifier,
+                session = currentSession,
+                onLogout = authViewModel::logout
+            )
+        } else {
+            UserBookingHotelEntry(
+                modifier = modifier,
+                session = currentSession,
+                onLogout = authViewModel::logout,
+                paymentReturnUri = paymentReturnUri,
+                onPaymentReturnConsumed = onPaymentReturnConsumed
+            )
+        }
     }
 }
 
@@ -80,10 +95,27 @@ private fun UserBookingHotelEntry(
     onLogout: () -> Unit,
     paymentReturnUri: Uri?,
     onPaymentReturnConsumed: () -> Unit,
-    viewModel: BookingViewModel = hiltViewModel()
+    viewModel: BookingViewModel = hiltViewModel(key = "booking-${session.sessionId}")
 ) {
-    LaunchedEffect(session.user.id) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, session.sessionId) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.loadRooms()
+                viewModel.refreshBookingHistory()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(session.sessionId) {
         viewModel.refreshBookingHistory()
+        while (isActive) {
+            delay(30_000)
+            if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                viewModel.refreshBookingHistory()
+            }
+        }
     }
 
     BookingHotelAuthenticatedContent(
@@ -109,29 +141,33 @@ fun BookingHotelAuthenticatedContent(
     val navController = rememberNavController()
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
     val canNavigateBack = currentRoute != null && currentRoute != Screen.List.route
-    val bookingHistory by viewModel.bookingHistory.collectAsState()
 
-    // VNPAY browser return is only a signal to re-query our backend. The deep-link query
-    // parameters never decide SUCCESS/FAILED by themselves.
-    LaunchedEffect(paymentReturnUri, bookingHistory) {
+    val snackbarState = remember { SnackbarHostState() }
+    val returnUnavailable = stringResource(R.string.payment_return_unavailable)
+    // Resolve only against freshly fetched, owned history. A URI is an untrusted hint.
+    LaunchedEffect(paymentReturnUri, session.sessionId) {
         val uri = paymentReturnUri ?: return@LaunchedEffect
-        val bookingId = uri.getQueryParameter("bookingId")?.toIntOrNull() ?: 0
-        if (bookingId <= 0) {
+        val bookingId = paymentReturnBookingId(uri.toString())
+        if (bookingId == null) {
             onPaymentReturnConsumed()
+            snackbarState.showSnackbar(returnUnavailable)
             return@LaunchedEffect
         }
-        val booking = bookingHistory.firstOrNull { it.bookingId == bookingId }
-            ?: return@LaunchedEffect
-        viewModel.resumePayment(booking)
-        navController.navigate(Screen.Payment.route) {
-            launchSingleTop = true
+        viewModel.handlePaymentReturn(bookingId) { booking ->
+            if (booking != null) {
+                viewModel.resumePayment(booking)
+                navController.navigate(Screen.Payment.route) { launchSingleTop = true }
+                if (booking.status != "SUCCESS" && booking.status != "FAILED") viewModel.checkVnPayPaymentStatus()
+            }
         }
-        viewModel.checkVnPayPaymentStatus()
         onPaymentReturnConsumed()
     }
+    val historyError by viewModel.historyError.collectAsState()
+    LaunchedEffect(historyError) { historyError?.let { snackbarState.showSnackbar(it) } }
 
     Scaffold(
         modifier = modifier,
+        snackbarHost = { SnackbarHost(snackbarState) },
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             CenterAlignedTopAppBar(
@@ -139,14 +175,14 @@ fun BookingHotelAuthenticatedContent(
                 navigationIcon = {
                     if (canNavigateBack) {
                         IconButton(onClick = { navController.popBackStack() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                         }
                     }
                 },
                 actions = {
                     if (currentRoute == Screen.List.route) {
                         IconButton(onClick = { navController.navigate(Screen.Profile.route) }) {
-                            Icon(Icons.Default.AccountCircle, contentDescription = "Tài khoản")
+                            Icon(Icons.Default.AccountCircle, contentDescription = stringResource(R.string.tai_khoan))
                         }
                     }
                 },
@@ -178,7 +214,7 @@ private fun AdminBookingHotelAuthenticatedContent(
     modifier: Modifier = Modifier,
     session: AuthSession,
     onLogout: () -> Unit,
-    viewModel: AdminViewModel = hiltViewModel()
+    viewModel: AdminViewModel = hiltViewModel(key = "admin-${session.sessionId}")
 ) {
     val navController = rememberNavController()
     val state by viewModel.state.collectAsState()
@@ -194,14 +230,14 @@ private fun AdminBookingHotelAuthenticatedContent(
                 navigationIcon = {
                     if (canNavigateBack) {
                         IconButton(onClick = { navController.popBackStack() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                         }
                     }
                 },
                 actions = {
                     if (currentRoute == AdminScreen.Dashboard.route) {
                         IconButton(onClick = { navController.navigate(AdminScreen.Profile.route) }) {
-                            Icon(Icons.Default.AccountCircle, contentDescription = "Tài khoản admin")
+                            Icon(Icons.Default.AccountCircle, contentDescription = stringResource(R.string.tai_khoan_admin))
                         }
                     }
                 },
@@ -246,20 +282,22 @@ private fun AdminBookingHotelAuthenticatedContent(
     }
 }
 
+@Composable
 private fun routeTitle(route: String?): String = when (route) {
-    Screen.Detail.route -> "Chi tiết phòng"
-    Screen.Summary.route -> "Xác nhận đặt phòng"
-    Screen.History.route -> "Lịch sử đặt phòng"
-    Screen.Payment.route -> "Thanh toán"
-    Screen.Profile.route -> "Tài khoản"
-    else -> "Booking Hotel"
+    Screen.Detail.route -> stringResource(R.string.chi_tiet_phong)
+    Screen.Summary.route -> stringResource(R.string.xac_nhan_at_phong)
+    Screen.History.route -> stringResource(R.string.lich_su_at_phong)
+    Screen.Payment.route -> stringResource(R.string.pay_now)
+    Screen.Profile.route -> stringResource(R.string.tai_khoan)
+    else -> stringResource(R.string.app_name)
 }
 
+@Composable
 private fun adminRouteTitle(route: String?): String = when (route) {
-    AdminScreen.Rooms.route -> "Quản lý phòng"
-    AdminScreen.Bookings.route -> "Booking & Payment"
-    AdminScreen.Profile.route -> "Tài khoản admin"
-    else -> "Admin Dashboard"
+    AdminScreen.Rooms.route -> stringResource(R.string.quan_ly_phong)
+    AdminScreen.Bookings.route -> stringResource(R.string.booking_payment)
+    AdminScreen.Profile.route -> stringResource(R.string.tai_khoan_admin)
+    else -> stringResource(R.string.admin_dashboard)
 }
 
 private fun demoSession() = AuthSession(
