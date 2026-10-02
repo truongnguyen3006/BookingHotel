@@ -43,8 +43,8 @@ class BookingDaoTest {
                 roomId = 1,
                 roomTypeKey = "standard",
                 quantity = 2,
-                pricePerNight = 50.0,
-                totalPrice = 100.0,
+                pricePerNight = 1_250_000L,
+                totalPrice = 2_500_000L,
                 status = "PENDING_PAYMENT",
                 createdAt = 1000L
             )
@@ -71,8 +71,8 @@ class BookingDaoTest {
                 roomId = 1,
                 roomTypeKey = "standard",
                 quantity = 1,
-                pricePerNight = 50.0,
-                totalPrice = 50.0,
+                pricePerNight = 1_250_000L,
+                totalPrice = 1_250_000L,
                 status = "PENDING_PAYMENT",
                 createdAt = 1000L
             )
@@ -83,8 +83,8 @@ class BookingDaoTest {
                 roomId = 2,
                 roomTypeKey = "deluxe",
                 quantity = 1,
-                pricePerNight = 80.0,
-                totalPrice = 80.0,
+                pricePerNight = 2_000_000L,
+                totalPrice = 2_000_000L,
                 status = "PENDING_PAYMENT",
                 createdAt = 2000L
             )
@@ -103,8 +103,8 @@ class BookingDaoTest {
                 roomId = 1,
                 roomTypeKey = "standard",
                 quantity = 1,
-                pricePerNight = 50.0,
-                totalPrice = 100.0,
+                pricePerNight = 1_250_000L,
+                totalPrice = 2_500_000L,
                 status = "PENDING_PAYMENT",
                 createdAt = 1000L,
                 checkInDate = 2000L,

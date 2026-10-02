@@ -132,30 +132,30 @@ fun RoomListScreen(viewModel: BookingViewModel, navController: NavController) {
                     label = { Text("Còn phòng") }
                 )
                 FilterChip(
-                    selected = filterState.priceFilter == PriceFilter.UNDER_100,
+                    selected = filterState.priceFilter == PriceFilter.UNDER_2_5_MILLION,
                     onClick = {
                         viewModel.setPriceFilter(
-                            if (filterState.priceFilter == PriceFilter.UNDER_100) {
+                            if (filterState.priceFilter == PriceFilter.UNDER_2_5_MILLION) {
                                 PriceFilter.ALL
                             } else {
-                                PriceFilter.UNDER_100
+                                PriceFilter.UNDER_2_5_MILLION
                             }
                         )
                     },
-                    label = { Text("Dưới $100") }
+                    label = { Text("Dưới 2,5 triệu") }
                 )
                 FilterChip(
-                    selected = filterState.priceFilter == PriceFilter.AT_LEAST_100,
+                    selected = filterState.priceFilter == PriceFilter.AT_LEAST_2_5_MILLION,
                     onClick = {
                         viewModel.setPriceFilter(
-                            if (filterState.priceFilter == PriceFilter.AT_LEAST_100) {
+                            if (filterState.priceFilter == PriceFilter.AT_LEAST_2_5_MILLION) {
                                 PriceFilter.ALL
                             } else {
-                                PriceFilter.AT_LEAST_100
+                                PriceFilter.AT_LEAST_2_5_MILLION
                             }
                         )
                     },
-                    label = { Text("Từ $100") }
+                    label = { Text("Từ 2,5 triệu") }
                 )
                 listOf("Wi-Fi", "Breakfast", "Jacuzzi").forEach { amenity ->
                     FilterChip(
@@ -394,7 +394,7 @@ fun RoomItemPreview() {
             image = R.drawable.standard_room,
             type = R.string.room_style_1,
             typeKey = "standard",
-            pricePerNight = 50.0,
+            pricePerNight = 1_250_000L,
             amenities = listOf("Wi-Fi", "TV"),
             availableRooms = 10
         ),

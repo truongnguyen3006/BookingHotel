@@ -5,8 +5,8 @@ data class Room(
     val image: Int,
     val type: Int,
     val typeKey: String,
-    val pricePerNight: Double,
-    // tiện nghi
+    /** Native VND amount. */
+    val pricePerNight: Long,
     val amenities: List<String>,
     val availableRooms: Int
 )

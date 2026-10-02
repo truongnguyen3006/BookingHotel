@@ -92,8 +92,8 @@ class AdminViewModel @Inject constructor(
         }
     }
 
-    fun updateRoom(roomId: Int, pricePerNight: Double, availableRooms: Int) {
-        if (pricePerNight <= 0.0) {
+    fun updateRoom(roomId: Int, pricePerNight: Long, availableRooms: Int) {
+        if (pricePerNight <= 0L) {
             _state.update { it.copy(message = "Giá phòng phải lớn hơn 0.", isError = true) }
             return
         }

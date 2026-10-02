@@ -15,9 +15,8 @@ fun Long.toDateTimeLabel(): String {
     return SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(this))
 }
 
-fun Double.toCurrencyLabel(): String {
-    return NumberFormat.getCurrencyInstance(Locale.US).format(this)
-}
+/** Formats all project money as native Vietnamese Dong. */
+fun Long.toCurrencyLabel(): String = toVndLabel()
 
 fun String.toBookingStatusLabel(): String {
     return when (this) {

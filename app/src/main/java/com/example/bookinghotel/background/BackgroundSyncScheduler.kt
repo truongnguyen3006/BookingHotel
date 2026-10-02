@@ -14,47 +14,52 @@ import java.util.concurrent.TimeUnit
 object BackgroundSyncScheduler {
 
     fun schedulePeriodicSync(context: Context) {
-        val constraints = networkConstraints()
-        val request = PeriodicWorkRequestBuilder<BackgroundSyncWorker>(
-            PERIODIC_INTERVAL_HOURS,
-            TimeUnit.HOURS
-        )
-            .setConstraints(constraints)
-            .setBackoffCriteria(
-                BackoffPolicy.EXPONENTIAL,
-                BACKOFF_SECONDS,
-                TimeUnit.SECONDS
-            )
-            .addTag(BackgroundSyncWorker.TAG)
-            .build()
+        val workManager = WorkManager.getInstance(context)
+        // Clean up names from the pre-Phase-3 combined worker after app upgrade.
+        workManager.cancelUniqueWork(BackgroundSyncWorker.WORK_NAME_PERIODIC)
+        workManager.cancelUniqueWork(BackgroundSyncWorker.WORK_NAME_IMMEDIATE)
 
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-            BackgroundSyncWorker.WORK_NAME_PERIODIC,
+        workManager.enqueueUniquePeriodicWork(
+            RoomCatalogSyncWorker.WORK_NAME_PERIODIC,
             ExistingPeriodicWorkPolicy.UPDATE,
-            request
+            PeriodicWorkRequestBuilder<RoomCatalogSyncWorker>(PERIODIC_INTERVAL_HOURS, TimeUnit.HOURS)
+                .setConstraints(networkConstraints())
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF_SECONDS, TimeUnit.SECONDS)
+                .addTag(RoomCatalogSyncWorker.TAG)
+                .build()
+        )
+
+        workManager.enqueueUniquePeriodicWork(
+            BookingHistorySyncWorker.WORK_NAME_PERIODIC,
+            ExistingPeriodicWorkPolicy.UPDATE,
+            PeriodicWorkRequestBuilder<BookingHistorySyncWorker>(PERIODIC_INTERVAL_HOURS, TimeUnit.HOURS)
+                .setConstraints(networkConstraints())
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF_SECONDS, TimeUnit.SECONDS)
+                .addTag(BookingHistorySyncWorker.TAG)
+                .build()
         )
     }
 
-    /**
-     * Useful after login or when a user explicitly asks for a refresh.
-     * Booking/payment mutation is intentionally never queued here; those operations
-     * must be confirmed by the server while the user is online.
-     */
+    /** Schedules room and user-history sync independently so one failure never blocks the other. */
     fun enqueueImmediateSync(context: Context) {
-        val request = OneTimeWorkRequestBuilder<BackgroundSyncWorker>()
-            .setConstraints(networkConstraints())
-            .setBackoffCriteria(
-                BackoffPolicy.EXPONENTIAL,
-                BACKOFF_SECONDS,
-                TimeUnit.SECONDS
-            )
-            .addTag(BackgroundSyncWorker.TAG)
-            .build()
-
-        WorkManager.getInstance(context).enqueueUniqueWork(
-            BackgroundSyncWorker.WORK_NAME_IMMEDIATE,
+        val workManager = WorkManager.getInstance(context)
+        workManager.enqueueUniqueWork(
+            RoomCatalogSyncWorker.WORK_NAME_IMMEDIATE,
             ExistingWorkPolicy.REPLACE,
-            request
+            OneTimeWorkRequestBuilder<RoomCatalogSyncWorker>()
+                .setConstraints(networkConstraints())
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF_SECONDS, TimeUnit.SECONDS)
+                .addTag(RoomCatalogSyncWorker.TAG)
+                .build()
+        )
+        workManager.enqueueUniqueWork(
+            BookingHistorySyncWorker.WORK_NAME_IMMEDIATE,
+            ExistingWorkPolicy.REPLACE,
+            OneTimeWorkRequestBuilder<BookingHistorySyncWorker>()
+                .setConstraints(networkConstraints())
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF_SECONDS, TimeUnit.SECONDS)
+                .addTag(BookingHistorySyncWorker.TAG)
+                .build()
         )
     }
 

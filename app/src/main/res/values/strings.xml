@@ -8,4 +8,14 @@
     <string name="choose_room">Choose Room</string>
     <string name="see_detail">See Detail</string>
     <string name="booking_room">Booking Room</string>
+
+    <!-- Release-critical UX copy extracted from Compose so tests/navigation do not depend on literals. -->
+    <string name="booking_success">Đặt phòng thành công</string>
+    <string name="payment_success">Thanh toán thành công</string>
+    <string name="pay_now">Thanh toán</string>
+    <string name="check_payment">Kiểm tra thanh toán</string>
+    <string name="retry_payment">Thử thanh toán lại</string>
+    <string name="check_vnpay_result">Kiểm tra kết quả VNPAY</string>
+    <string name="reopen_vnpay">Mở lại trang VNPAY</string>
+    <string name="quantity_min_error">Số lượng đặt phòng tối thiểu là 1.</string>
 </resources>

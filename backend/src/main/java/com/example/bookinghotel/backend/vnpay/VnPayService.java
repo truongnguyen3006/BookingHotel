@@ -13,14 +13,13 @@ import com.example.bookinghotel.backend.exception.ConflictException;
 import com.example.bookinghotel.backend.exception.NotFoundException;
 import com.example.bookinghotel.backend.repository.BookingJpaRepository;
 import com.example.bookinghotel.backend.repository.PaymentJpaRepository;
+import com.example.bookinghotel.backend.service.BookingLifecycleService;
 import com.example.bookinghotel.backend.service.CurrentUserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -45,17 +44,20 @@ public class VnPayService {
     private final BookingJpaRepository bookingRepository;
     private final PaymentJpaRepository paymentRepository;
     private final CurrentUserService currentUserService;
+    private final BookingLifecycleService bookingLifecycleService;
     private final VnPayProperties properties;
 
     public VnPayService(
             BookingJpaRepository bookingRepository,
             PaymentJpaRepository paymentRepository,
             CurrentUserService currentUserService,
+            BookingLifecycleService bookingLifecycleService,
             VnPayProperties properties
     ) {
         this.bookingRepository = bookingRepository;
         this.paymentRepository = paymentRepository;
         this.currentUserService = currentUserService;
+        this.bookingLifecycleService = bookingLifecycleService;
         this.properties = properties;
     }
 
@@ -80,30 +82,39 @@ public class VnPayService {
             if (existing.getMethod() != PaymentMethod.VNPAY || existing.getProviderReference() == null) {
                 throw new ConflictException("PAYMENT_KEY_REUSED", "Idempotency key already belongs to another payment attempt");
             }
-            if (existing.getStatus() == PaymentStatus.PENDING && isExpired(existing, now)) {
-                expirePayment(existing);
-                return toExpiredCreateResponse(existing);
+            if (existing.getStatus() == PaymentStatus.PENDING && isConfirmationTimedOut(existing, now)) {
+                expirePayment(existing, booking);
+                return toClosedCreateResponse(existing);
             }
-            if (existing.getStatus() != PaymentStatus.PENDING) {
-                return toExpiredCreateResponse(existing);
+            if (existing.getStatus() != PaymentStatus.PENDING || isPaymentUrlExpired(existing, now)) {
+                return toClosedCreateResponse(existing);
             }
             return toCreateResponse(existing, clientIp);
         }
 
         PaymentEntity latest = paymentRepository.findLatestByBookingIdForUpdate(bookingId).orElse(null);
         if (latest != null && latest.getMethod() == PaymentMethod.VNPAY && latest.getStatus() == PaymentStatus.PENDING) {
-            if (!isExpired(latest, now)) {
+            if (isConfirmationTimedOut(latest, now)) {
+                expirePayment(latest, booking);
+            } else if (isPaymentUrlExpired(latest, now)) {
+                // The provider URL is closed, but keep the reservation during the short
+                // confirmation grace period so a delayed IPN cannot oversell inventory.
+                return toClosedCreateResponse(latest);
+            } else {
                 // A different idempotency key may come from another device/restarted app.
                 // Reuse the one still-active provider transaction.
                 return toCreateResponse(latest, clientIp);
             }
-            expirePayment(latest);
         }
 
-        long amountVnd = toVndAmount(booking.getTotalPrice());
+        long amountVnd = validateVndAmount(booking.getTotalPrice());
         String providerReference = newProviderReference(bookingId, now);
+        Instant settlementDeadline = now
+                .plusSeconds(properties.getExpireMinutes() * 60L)
+                .plusSeconds(properties.getConfirmationGraceSeconds());
+        bookingLifecycleService.ensureInventoryReservedForRetry(booking, settlementDeadline);
 
-        booking.setStatus(BookingStatus.PROCESSING);
+        bookingLifecycleService.markProcessing(booking);
         PaymentEntity payment = paymentRepository.save(new PaymentEntity(
                 booking,
                 PaymentMethod.VNPAY,
@@ -133,8 +144,8 @@ public class VnPayService {
         if (payment.getMethod() != PaymentMethod.VNPAY) {
             throw new BadRequestException("PAYMENT_NOT_VNPAY", "Latest payment is not a VNPAY payment");
         }
-        if (payment.getStatus() == PaymentStatus.PENDING && isExpired(payment, Instant.now())) {
-            expirePayment(payment);
+        if (payment.getStatus() == PaymentStatus.PENDING && isConfirmationTimedOut(payment, Instant.now())) {
+            expirePayment(payment, booking);
         }
         return toStatusResponse(payment);
     }
@@ -164,7 +175,7 @@ public class VnPayService {
 
             // Keep lock ordering consistent with user-initiated payment creation:
             // booking first, then payment. This avoids a booking/payment lock inversion.
-            bookingRepository.findByIdForUpdate(discovered.getBooking().getId())
+            BookingEntity booking = bookingRepository.findByIdForUpdate(discovered.getBooking().getId())
                     .orElseThrow(() -> new IllegalStateException("Booking disappeared during VNPAY IPN"));
             PaymentEntity payment = paymentRepository.findByProviderReferenceForUpdate(txnRef)
                     .orElseThrow(() -> new IllegalStateException("Payment disappeared during VNPAY IPN"));
@@ -191,10 +202,15 @@ public class VnPayService {
                     transactionStatus,
                     paidAt
             );
-            payment.getBooking().setStatus(success ? BookingStatus.SUCCESS : BookingStatus.FAILED);
+            if (success) {
+                bookingLifecycleService.markSuccessful(booking);
+            } else {
+                bookingLifecycleService.markFailedAndRelease(booking);
+            }
 
             return ipn("00", "Confirm Success");
         } catch (RuntimeException exception) {
+            log.warn("VNPAY IPN processing failed: {}", exception.getMessage());
             return ipn("99", "Unknown error");
         }
     }
@@ -228,7 +244,7 @@ public class VnPayService {
 
     private VnPayCreateResponse toCreateResponse(PaymentEntity payment, String clientIp) {
         Instant createdAt = payment.getCreatedAt();
-        Instant expiresAt = expiresAt(payment);
+        Instant expiresAt = paymentUrlExpiresAt(payment);
         Map<String, String> params = buildPaymentParams(payment, clientIp, createdAt, expiresAt);
         log.info(
                 "VNPAY create bookingId={} txnRef={} tmnCode={} amount={} ip={} createDate={} expireDate={} returnUrl={} hashSecretLength={}",
@@ -254,14 +270,14 @@ public class VnPayService {
         );
     }
 
-    private VnPayCreateResponse toExpiredCreateResponse(PaymentEntity payment) {
+    private VnPayCreateResponse toClosedCreateResponse(PaymentEntity payment) {
         return new VnPayCreateResponse(
                 payment.getBooking().getId(),
                 payment.getStatus().name(),
                 "",
                 payment.getProviderReference(),
                 payment.getAmountVnd() == null ? 0L : payment.getAmountVnd(),
-                expiresAt(payment).toEpochMilli()
+                paymentUrlExpiresAt(payment).toEpochMilli()
         );
     }
 
@@ -275,7 +291,7 @@ public class VnPayService {
         params.put("vnp_Version", "2.1.0");
         params.put("vnp_Command", "pay");
         params.put("vnp_TmnCode", properties.getTmnCode());
-        params.put("vnp_Amount", String.valueOf(payment.getAmountVnd() * 100L));
+        params.put("vnp_Amount", String.valueOf(Math.multiplyExact(payment.getAmountVnd(), 100L)));
         params.put("vnp_CurrCode", "VND");
         params.put("vnp_TxnRef", payment.getProviderReference());
         params.put("vnp_OrderInfo", "Thanh toan BookingHotel booking " + payment.getBooking().getId());
@@ -307,18 +323,13 @@ public class VnPayService {
         );
     }
 
-    private long toVndAmount(BigDecimal totalPrice) {
-        if (properties.getVndPerPriceUnit() <= 0) {
-            throw new IllegalStateException("VNPAY_VND_PER_PRICE_UNIT must be greater than zero");
-        }
-        long amount = totalPrice
-                .multiply(BigDecimal.valueOf(properties.getVndPerPriceUnit()))
-                .setScale(0, RoundingMode.HALF_UP)
-                .longValueExact();
-        if (amount <= 0 || amount > MAX_VNPAY_AMOUNT_VND) {
+    private long validateVndAmount(long amountVnd) {
+        // Booking.totalPrice is already a native VND snapshot taken at booking creation.
+        // Retries therefore cannot drift when room prices are edited later.
+        if (amountVnd <= 0 || amountVnd > MAX_VNPAY_AMOUNT_VND) {
             throw new BadRequestException("VNPAY_INVALID_AMOUNT", "Payment amount is outside VNPAY limits");
         }
-        return amount;
+        return amountVnd;
     }
 
     private long parseVnpAmount(String raw) {
@@ -344,15 +355,23 @@ public class VnPayService {
         }
     }
 
-    private boolean isExpired(PaymentEntity payment, Instant now) {
-        return !now.isBefore(expiresAt(payment));
+    private boolean isPaymentUrlExpired(PaymentEntity payment, Instant now) {
+        return !now.isBefore(paymentUrlExpiresAt(payment));
     }
 
-    private Instant expiresAt(PaymentEntity payment) {
+    private boolean isConfirmationTimedOut(PaymentEntity payment, Instant now) {
+        return !now.isBefore(settlementDeadline(payment));
+    }
+
+    private Instant paymentUrlExpiresAt(PaymentEntity payment) {
         return payment.getCreatedAt().plusSeconds(properties.getExpireMinutes() * 60L);
     }
 
-    private void expirePayment(PaymentEntity payment) {
+    private Instant settlementDeadline(PaymentEntity payment) {
+        return paymentUrlExpiresAt(payment).plusSeconds(properties.getConfirmationGraceSeconds());
+    }
+
+    private void expirePayment(PaymentEntity payment, BookingEntity booking) {
         if (payment.getStatus() != PaymentStatus.PENDING) return;
         payment.completeProviderPayment(
                 PaymentStatus.FAILED,
@@ -361,7 +380,7 @@ public class VnPayService {
                 "EXPIRED",
                 null
         );
-        payment.getBooking().setStatus(BookingStatus.FAILED);
+        bookingLifecycleService.markFailedAndRelease(booking);
     }
 
     private String newProviderReference(int bookingId, Instant now) {
@@ -381,8 +400,8 @@ public class VnPayService {
         if (!properties.isConfigured()) {
             throw new IllegalStateException("VNPAY configuration is incomplete. Check VNP_PAY_URL and VNP_RETURN_URL.");
         }
-        if (properties.getExpireMinutes() <= 0) {
-            throw new IllegalStateException("VNP_EXPIRE_MINUTES must be greater than zero");
+        if (properties.getExpireMinutes() <= 0 || properties.getConfirmationGraceSeconds() < 0) {
+            throw new IllegalStateException("VNPAY expiration configuration is invalid");
         }
     }
 

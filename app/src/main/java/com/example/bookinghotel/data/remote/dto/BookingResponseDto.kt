@@ -4,7 +4,7 @@ data class BookingResponseDto(
     val bookingId: Int,
     val room: RoomDto,
     val quantity: Int,
-    val totalPrice: Double,
+    val totalPrice: Long,
     val status: String,
     val checkInDate: Long = 0L,
     val checkOutDate: Long = 0L,

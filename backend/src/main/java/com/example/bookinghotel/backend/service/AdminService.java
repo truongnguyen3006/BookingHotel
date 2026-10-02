@@ -17,7 +17,6 @@ import com.example.bookinghotel.backend.repository.RoomJpaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.ZoneOffset;
 import java.util.Comparator;
 import java.util.List;
@@ -77,10 +76,10 @@ public class AdminService {
         long paidBookings = bookings.stream()
                 .filter(booking -> booking.getStatus() == BookingStatus.SUCCESS)
                 .count();
-        BigDecimal totalRevenue = bookings.stream()
+        long totalRevenue = bookings.stream()
                 .filter(booking -> booking.getStatus() == BookingStatus.SUCCESS)
-                .map(BookingEntity::getTotalPrice)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                .mapToLong(BookingEntity::getTotalPrice)
+                .reduce(0L, Math::addExact);
         long availableInventory = rooms.stream()
                 .mapToLong(RoomEntity::getAvailableRooms)
                 .sum();
@@ -88,7 +87,7 @@ public class AdminService {
         return new AdminDashboardResponse(
                 bookings.size(),
                 paidBookings,
-                totalRevenue.doubleValue(),
+                totalRevenue,
                 rooms.size(),
                 availableInventory
         );
@@ -104,7 +103,7 @@ public class AdminService {
                 booking.getId(),
                 RoomService.toResponse(booking.getRoom()),
                 booking.getQuantity(),
-                booking.getTotalPrice().doubleValue(),
+                booking.getTotalPrice(),
                 booking.getStatus().name(),
                 booking.getCheckInDate().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
                 booking.getCheckOutDate().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),

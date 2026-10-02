@@ -11,10 +11,10 @@ import com.example.bookinghotel.backend.exception.ConflictException;
 import com.example.bookinghotel.backend.exception.NotFoundException;
 import com.example.bookinghotel.backend.repository.BookingJpaRepository;
 import com.example.bookinghotel.backend.repository.RoomJpaRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -26,6 +26,9 @@ public class BookingService {
     private final RoomJpaRepository roomRepository;
     private final BookingJpaRepository bookingRepository;
     private final CurrentUserService currentUserService;
+
+    @Value("${booking.reservation-minutes:15}")
+    private long reservationMinutes = 15L;
 
     public BookingService(
             RoomJpaRepository roomRepository,
@@ -57,13 +60,24 @@ public class BookingService {
         }
 
         int nights = (int) nightsLong;
-        BigDecimal totalPrice = room.getPricePerNight()
-                .multiply(BigDecimal.valueOf(request.quantity()))
-                .multiply(BigDecimal.valueOf(nights));
+        long totalPrice;
+        try {
+            totalPrice = Math.multiplyExact(
+                    Math.multiplyExact(room.getPricePerNight(), (long) request.quantity()),
+                    (long) nights
+            );
+        } catch (ArithmeticException exception) {
+            throw new BadRequestException("INVALID_AMOUNT", "Booking total is too large");
+        }
 
         room.setAvailableRooms(room.getAvailableRooms() - request.quantity());
 
-        BookingEntity booking = bookingRepository.save(new BookingEntity(
+        if (reservationMinutes <= 0) {
+            throw new IllegalStateException("BOOKING_RESERVATION_MINUTES must be greater than zero");
+        }
+
+        Instant now = Instant.now();
+        BookingEntity booking = new BookingEntity(
                 room,
                 user,
                 request.quantity(),
@@ -73,8 +87,10 @@ public class BookingService {
                 nights,
                 totalPrice,
                 BookingStatus.PENDING_PAYMENT,
-                Instant.now()
-        ));
+                now
+        );
+        booking.setReservationExpiresAt(now.plusSeconds(Math.multiplyExact(reservationMinutes, 60L)));
+        booking = bookingRepository.save(booking);
 
         return toResponse(booking);
     }
@@ -104,7 +120,7 @@ public class BookingService {
                 booking.getId(),
                 RoomService.toResponse(booking.getRoom()),
                 booking.getQuantity(),
-                booking.getTotalPrice().doubleValue(),
+                booking.getTotalPrice(),
                 booking.getStatus().name(),
                 toEpochMillis(booking.getCheckInDate()),
                 toEpochMillis(booking.getCheckOutDate()),

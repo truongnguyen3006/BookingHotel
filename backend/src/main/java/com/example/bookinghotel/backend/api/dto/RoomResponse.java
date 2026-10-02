@@ -6,7 +6,7 @@ public record RoomResponse(
         int id,
         String imageKey,
         String typeKey,
-        double pricePerNight,
+        long pricePerNight,
         List<String> amenities,
         int availableRooms
 ) {}

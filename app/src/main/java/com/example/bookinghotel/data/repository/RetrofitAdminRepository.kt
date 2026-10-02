@@ -32,7 +32,7 @@ class RetrofitAdminRepository @Inject constructor(
 
     override suspend fun updateRoom(
         roomId: Int,
-        pricePerNight: Double,
+        pricePerNight: Long,
         availableRooms: Int
     ): Result<Room> = runCatching {
         api.updateRoom(

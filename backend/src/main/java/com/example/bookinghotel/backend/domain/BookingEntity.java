@@ -12,7 +12,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 
@@ -46,12 +45,18 @@ public class BookingEntity {
     @Column(nullable = false)
     private int nights;
 
-    @Column(name = "total_price", nullable = false, precision = 12, scale = 2)
-    private BigDecimal totalPrice;
+    @Column(name = "total_price", nullable = false)
+    private long totalPrice;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 40)
     private BookingStatus status;
+
+    @Column(name = "inventory_released", nullable = false)
+    private boolean inventoryReleased;
+
+    @Column(name = "reservation_expires_at")
+    private Instant reservationExpiresAt;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -59,7 +64,7 @@ public class BookingEntity {
     protected BookingEntity() {}
 
     public BookingEntity(RoomEntity room, UserEntity user, int quantity, LocalDate checkInDate, LocalDate checkOutDate,
-                         int guests, int nights, BigDecimal totalPrice, BookingStatus status, Instant createdAt) {
+                         int guests, int nights, long totalPrice, BookingStatus status, Instant createdAt) {
         this.room = room;
         this.user = user;
         this.quantity = quantity;
@@ -69,12 +74,13 @@ public class BookingEntity {
         this.nights = nights;
         this.totalPrice = totalPrice;
         this.status = status;
+        this.inventoryReleased = false;
         this.createdAt = createdAt;
     }
 
     // Kept for older unit tests / legacy rows created before authentication.
     public BookingEntity(RoomEntity room, int quantity, LocalDate checkInDate, LocalDate checkOutDate,
-                         int guests, int nights, BigDecimal totalPrice, BookingStatus status, Instant createdAt) {
+                         int guests, int nights, long totalPrice, BookingStatus status, Instant createdAt) {
         this(room, null, quantity, checkInDate, checkOutDate, guests, nights, totalPrice, status, createdAt);
     }
 
@@ -86,8 +92,12 @@ public class BookingEntity {
     public LocalDate getCheckOutDate() { return checkOutDate; }
     public int getGuests() { return guests; }
     public int getNights() { return nights; }
-    public BigDecimal getTotalPrice() { return totalPrice; }
+    public long getTotalPrice() { return totalPrice; }
     public BookingStatus getStatus() { return status; }
+    public boolean isInventoryReleased() { return inventoryReleased; }
+    public Instant getReservationExpiresAt() { return reservationExpiresAt; }
     public Instant getCreatedAt() { return createdAt; }
     public void setStatus(BookingStatus status) { this.status = status; }
+    public void setInventoryReleased(boolean inventoryReleased) { this.inventoryReleased = inventoryReleased; }
+    public void setReservationExpiresAt(Instant reservationExpiresAt) { this.reservationExpiresAt = reservationExpiresAt; }
 }

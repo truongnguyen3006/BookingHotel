@@ -3,13 +3,13 @@ package com.example.bookinghotel.data.remote.dto
 data class AdminDashboardDto(
     val totalBookings: Long,
     val paidBookings: Long,
-    val totalRevenue: Double,
+    val totalRevenue: Long,
     val roomTypes: Long,
     val availableRoomInventory: Long
 )
 
 data class AdminRoomUpdateRequestDto(
-    val pricePerNight: Double? = null,
+    val pricePerNight: Long? = null,
     val availableRooms: Int? = null
 )
 
@@ -24,7 +24,7 @@ data class AdminBookingDto(
     val bookingId: Int,
     val room: RoomDto,
     val quantity: Int,
-    val totalPrice: Double,
+    val totalPrice: Long,
     val status: String,
     val checkInDate: Long,
     val checkOutDate: Long,

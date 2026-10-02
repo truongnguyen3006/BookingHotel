@@ -78,7 +78,7 @@ class RoomCacheDaoTest {
             id = id,
             imageKey = if (id == 1) "standard_room" else "deluxe_room",
             typeKey = if (id == 1) "standard" else "deluxe",
-            pricePerNight = if (id == 1) 50.0 else 80.0,
+            pricePerNight = if (id == 1) 1_250_000L else 2_000_000L,
             amenities = listOf("Wi-Fi", "TV"),
             availableRooms = availableRooms,
             lastUpdatedAt = updatedAt

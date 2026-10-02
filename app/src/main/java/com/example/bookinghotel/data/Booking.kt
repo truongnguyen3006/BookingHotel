@@ -6,8 +6,9 @@ data class Booking(
     val roomId: Int,
     val roomTypeKey: String,
     val quantity: Int,
-    val pricePerNight: Double,
-    val totalPrice: Double,
+    /** Native VND snapshot captured by the backend when the booking is created. */
+    val pricePerNight: Long,
+    val totalPrice: Long,
     val status: String,
     val createdAt: Long,
     val checkInDate: Long = 0L,

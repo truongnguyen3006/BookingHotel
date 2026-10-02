@@ -36,7 +36,7 @@ sealed interface PaymentUiState {
     data object Idle : PaymentUiState
     data object Loading : PaymentUiState
     data class VnPayReady(val session: VnPayPaymentSession) : PaymentUiState
-    data class VnPayPending(val session: VnPayPaymentSession, val message: String) : PaymentUiState
+    data class VnPayPending(val session: VnPayPaymentSession?, val message: String) : PaymentUiState
     data class Success(val result: PaymentResult) : PaymentUiState
     data class Failed(val result: PaymentResult) : PaymentUiState
     data class Error(val message: String) : PaymentUiState
@@ -67,8 +67,8 @@ class BookingViewModel @Inject constructor(
             .filter { room ->
                 when (filter.priceFilter) {
                     PriceFilter.ALL -> true
-                    PriceFilter.UNDER_100 -> room.pricePerNight < 100.0
-                    PriceFilter.AT_LEAST_100 -> room.pricePerNight >= 100.0
+                    PriceFilter.UNDER_2_5_MILLION -> room.pricePerNight < 2_500_000L
+                    PriceFilter.AT_LEAST_2_5_MILLION -> room.pricePerNight >= 2_500_000L
                 }
             }
             .filter { room ->
@@ -305,14 +305,17 @@ class BookingViewModel @Inject constructor(
 
     fun checkVnPayPaymentStatus() {
         val booking = _lastBooking.value ?: return
-        val currentState = _paymentState.value
-        val session = when (currentState) {
+        val currentSession = when (val currentState = _paymentState.value) {
             is PaymentUiState.VnPayReady -> currentState.session
             is PaymentUiState.VnPayPending -> currentState.session
             else -> null
-        } ?: return
+        }
 
         viewModelScope.launch {
+            _paymentState.value = PaymentUiState.VnPayPending(
+                session = currentSession,
+                message = "Đang kiểm tra trạng thái giao dịch với backend..."
+            )
             roomRepository.getVnPayPaymentStatus(booking)
                 .onSuccess { status ->
                     when (status.status) {
@@ -355,7 +358,7 @@ class BookingViewModel @Inject constructor(
                         }
                         else -> {
                             _paymentState.value = PaymentUiState.VnPayPending(
-                                session = session,
+                                session = currentSession,
                                 message = "VNPAY chưa gửi xác nhận cuối cùng. Hãy đợi vài giây rồi kiểm tra lại."
                             )
                         }
@@ -363,10 +366,25 @@ class BookingViewModel @Inject constructor(
                 }
                 .onFailure { throwable ->
                     _paymentState.value = PaymentUiState.VnPayPending(
-                        session = session,
+                        session = currentSession,
                         message = throwable.toPaymentUserMessage()
                     )
                 }
+        }
+    }
+
+    /** Restores a booking selected from History/deep link into the payment flow. */
+    fun resumePayment(booking: Booking) {
+        _selectedRoom.value = roomRepository.getRoomById(booking.roomId) ?: _selectedRoom.value
+        _lastBooking.value = booking
+        paymentIdempotencyKey = UUID.randomUUID().toString()
+        _paymentState.value = if (booking.status == "PROCESSING") {
+            PaymentUiState.VnPayPending(
+                session = null,
+                message = "Giao dịch đang được xử lý. Kiểm tra trạng thái để lấy kết quả mới nhất."
+            )
+        } else {
+            PaymentUiState.Idle
         }
     }
 
@@ -382,12 +400,12 @@ class BookingViewModel @Inject constructor(
     }
 
     fun estimatedTotal(
-        pricePerNight: Double,
+        pricePerNight: Long,
         quantity: Int,
         checkInDate: Long,
         checkOutDate: Long
-    ): Double {
-        if (quantity <= 0 || checkOutDate <= checkInDate) return 0.0
+    ): Long {
+        if (quantity <= 0 || checkOutDate <= checkInDate) return 0L
         return pricePerNight * quantity * calculateNights(checkInDate, checkOutDate)
     }
 

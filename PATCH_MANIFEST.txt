@@ -1,0 +1,81 @@
+BookingHotel2 combined Phase 1 + 2 + 3 + 4 patch — v1.0.0
+Baseline: user-provided BookingHotel1.zip (actual project BookingHotel2)
+
+This ZIP already includes the previous Phase 1 patch. Do NOT apply the old Phase 1 ZIP first.
+Copy the contents of this patch folder over the BookingHotel2 project root and choose Merge/Replace.
+Read RELEASE_V1_0_0_COMBINED.md before running/deploying.
+
+PACKAGED FILES:
+MODIFIED        PHASE1_BOOKING_LIFECYCLE_HARDENING.md
+NEW             RELEASE_V1_0_0_COMBINED.md
+MODIFIED        VNPAY_SANDBOX.md
+MODIFIED        app/src/androidTest/java/com/example/bookinghotel/BookingDaoTest.kt
+MODIFIED        app/src/androidTest/java/com/example/bookinghotel/BookingFlowUiTest.kt
+MODIFIED        app/src/androidTest/java/com/example/bookinghotel/RoomCacheDaoTest.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/MainActivity.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/background/BackgroundSyncScheduler.kt
+NEW             app/src/main/java/com/example/bookinghotel/background/BookingHistorySyncWorker.kt
+NEW             app/src/main/java/com/example/bookinghotel/background/RoomCatalogSyncWorker.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/data/AdminModels.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/data/Booking.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/data/Room.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/data/local/BookingDatabase.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/data/local/BookingEntity.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/data/local/RoomCacheEntity.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/data/remote/TokenAuthenticator.kt
+NEW             app/src/main/java/com/example/bookinghotel/data/remote/TokenRefreshCoordinator.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/data/remote/dto/AdminDtos.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/data/remote/dto/BookingResponseDto.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/data/remote/dto/RoomDto.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/data/repository/AdminRepository.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/data/repository/InMemoryRoomRepository.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/data/repository/RetrofitAdminRepository.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/di/DatabaseModule.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/ui/AdminViewModel.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/ui/BookingApp.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/ui/BookingViewModel.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/ui/Formatters.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/ui/RoomFilterState.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/ui/screens/BookingHistoryScreen.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/ui/screens/BookingSummaryScreen.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/ui/screens/PaymentScreen.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/ui/screens/RoomDetailsScreen.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/ui/screens/RoomListScreen.kt
+MODIFIED        app/src/main/java/com/example/bookinghotel/ui/screens/admin/AdminRoomsScreen.kt
+MODIFIED        app/src/main/res/values/strings.xml
+MODIFIED        app/src/test/java/com/example/bookinghotel/InMemoryRoomRepositoryTest.kt
+MODIFIED        app/src/test/java/com/example/bookinghotel/RetrofitRoomRepositoryTest.kt
+NEW             app/src/test/java/com/example/bookinghotel/data/remote/TokenRefreshCoordinatorTest.kt
+MODIFIED        backend/.env.example
+MODIFIED        backend/build.gradle.kts
+MODIFIED        backend/deploy/railway.env.example
+PHASE1-INCLUDED backend/src/main/java/com/example/bookinghotel/backend/BookingHotelBackendApplication.java
+MODIFIED        backend/src/main/java/com/example/bookinghotel/backend/api/dto/AdminBookingResponse.java
+MODIFIED        backend/src/main/java/com/example/bookinghotel/backend/api/dto/AdminDashboardResponse.java
+MODIFIED        backend/src/main/java/com/example/bookinghotel/backend/api/dto/AdminRoomUpdateRequest.java
+MODIFIED        backend/src/main/java/com/example/bookinghotel/backend/api/dto/BookingResponse.java
+MODIFIED        backend/src/main/java/com/example/bookinghotel/backend/api/dto/RoomResponse.java
+MODIFIED        backend/src/main/java/com/example/bookinghotel/backend/config/VnPayProperties.java
+MODIFIED        backend/src/main/java/com/example/bookinghotel/backend/domain/BookingEntity.java
+MODIFIED        backend/src/main/java/com/example/bookinghotel/backend/domain/PaymentEntity.java
+MODIFIED        backend/src/main/java/com/example/bookinghotel/backend/domain/RoomEntity.java
+PHASE1-INCLUDED backend/src/main/java/com/example/bookinghotel/backend/repository/BookingJpaRepository.java
+MODIFIED        backend/src/main/java/com/example/bookinghotel/backend/service/AdminService.java
+PHASE1-INCLUDED backend/src/main/java/com/example/bookinghotel/backend/service/BookingExpirationScheduler.java
+PHASE1-INCLUDED backend/src/main/java/com/example/bookinghotel/backend/service/BookingExpirationService.java
+MODIFIED        backend/src/main/java/com/example/bookinghotel/backend/service/BookingLifecycleService.java
+MODIFIED        backend/src/main/java/com/example/bookinghotel/backend/service/BookingService.java
+MODIFIED        backend/src/main/java/com/example/bookinghotel/backend/service/PaymentService.java
+MODIFIED        backend/src/main/java/com/example/bookinghotel/backend/service/RoomService.java
+MODIFIED        backend/src/main/java/com/example/bookinghotel/backend/vnpay/VnPayService.java
+MODIFIED        backend/src/main/resources/application.yml
+PHASE1-INCLUDED backend/src/main/resources/db/migration/V4__booking_reservation_lifecycle.sql
+NEW             backend/src/main/resources/db/migration/V5__money_vnd_bigint.sql
+PHASE1-INCLUDED backend/src/test/java/com/example/bookinghotel/backend/service/BookingExpirationServiceTest.java
+MODIFIED        backend/src/test/java/com/example/bookinghotel/backend/service/BookingLifecycleServiceTest.java
+MODIFIED        backend/src/test/java/com/example/bookinghotel/backend/service/BookingServiceTest.java
+NEW             backend/src/test/java/com/example/bookinghotel/backend/service/PaymentServiceLifecycleTest.java
+NEW             backend/src/test/java/com/example/bookinghotel/backend/service/PaymentStateMachineTest.java
+NEW             backend/src/test/java/com/example/bookinghotel/backend/vnpay/VnPayLifecycleTest.java
+
+Total packaged project/document files: 72

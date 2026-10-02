@@ -41,7 +41,7 @@ public class RoomService {
                 room.getId(),
                 room.getImageKey(),
                 room.getTypeKey(),
-                room.getPricePerNight().doubleValue(),
+                room.getPricePerNight(),
                 room.getAmenities().stream().sorted().toList(),
                 room.getAvailableRooms()
         );

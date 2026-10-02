@@ -12,9 +12,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -26,10 +28,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
+import com.example.bookinghotel.R
 import com.example.bookinghotel.data.Booking
 import com.example.bookinghotel.ui.BookingViewModel
+import com.example.bookinghotel.ui.Screen
 import com.example.bookinghotel.ui.toBookingStatusLabel
 import com.example.bookinghotel.ui.toCurrencyLabel
 import com.example.bookinghotel.ui.toDateLabel
@@ -44,12 +50,13 @@ private enum class HistoryFilter {
 }
 
 @Composable
-fun BookingHistoryScreen(viewModel: BookingViewModel) {
+fun BookingHistoryScreen(
+    viewModel: BookingViewModel,
+    navController: NavController
+) {
     val bookings by viewModel.bookingHistory.collectAsState()
     var filter by remember { mutableStateOf(HistoryFilter.ALL) }
 
-    // Always reconcile the local Room history with the server when this screen opens.
-    // This prevents stale local payment states from being shown after returning from VNPAY.
     LaunchedEffect(Unit) {
         viewModel.refreshBookingHistory()
     }
@@ -113,8 +120,17 @@ fun BookingHistoryScreen(viewModel: BookingViewModel) {
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(visibleBookings, key = { it.localId }) { booking ->
-                    BookingHistoryItem(booking)
+                items(visibleBookings, key = { it.bookingId }) { booking ->
+                    BookingHistoryItem(
+                        booking = booking,
+                        onResumePayment = {
+                            viewModel.resumePayment(booking)
+                            navController.navigate(Screen.Payment.route)
+                            if (booking.status == "PROCESSING") {
+                                viewModel.checkVnPayPaymentStatus()
+                            }
+                        }
+                    )
                 }
             }
         }
@@ -122,8 +138,15 @@ fun BookingHistoryScreen(viewModel: BookingViewModel) {
 }
 
 @Composable
-private fun BookingHistoryItem(booking: Booking) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+private fun BookingHistoryItem(
+    booking: Booking,
+    onResumePayment: () -> Unit
+) {
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("booking_history_item_${booking.bookingId}")
+    ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(7.dp)
@@ -140,7 +163,8 @@ private fun BookingHistoryItem(booking: Booking) {
                 )
                 AssistChip(
                     onClick = {},
-                    label = { Text(booking.status.toBookingStatusLabel()) }
+                    label = { Text(booking.status.toBookingStatusLabel()) },
+                    modifier = Modifier.testTag("booking_status_${booking.bookingId}")
                 )
             }
 
@@ -156,6 +180,33 @@ private fun BookingHistoryItem(booking: Booking) {
             booking.paymentMethod?.let { Text("Phương thức thanh toán: $it") }
             booking.transactionId?.let { Text("Mã giao dịch: $it") }
             booking.paidAt?.let { Text("Đã thanh toán: ${it.toDateTimeLabel()}") }
+
+            when (booking.status) {
+                "PENDING_PAYMENT" -> Button(
+                    onClick = onResumePayment,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("history_pay_${booking.bookingId}")
+                ) {
+                    Text(stringResource(R.string.pay_now))
+                }
+                "PROCESSING" -> OutlinedButton(
+                    onClick = onResumePayment,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("history_check_payment_${booking.bookingId}")
+                ) {
+                    Text(stringResource(R.string.check_payment))
+                }
+                "FAILED" -> Button(
+                    onClick = onResumePayment,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("history_retry_payment_${booking.bookingId}")
+                ) {
+                    Text(stringResource(R.string.retry_payment))
+                }
+            }
         }
     }
 }

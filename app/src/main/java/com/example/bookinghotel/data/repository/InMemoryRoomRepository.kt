@@ -116,6 +116,23 @@ class InMemoryRoomRepository : RoomRepository {
             return Result.failure(IllegalStateException("Booking already paid"))
         }
 
+        // Mirror the backend lifecycle in tests/previews: FAILED bookings already returned
+        // their inventory, so a retry must reserve the rooms again before processing.
+        if (currentBooking.status == "FAILED") {
+            val room = getRoomById(currentBooking.roomId)
+                ?: return Result.failure(IllegalArgumentException("Room not found"))
+            if (currentBooking.quantity > room.availableRooms) {
+                return Result.failure(IllegalStateException("Not enough rooms available to retry"))
+            }
+            _rooms.value = _rooms.value.map { item ->
+                if (item.id == room.id) {
+                    item.copy(availableRooms = item.availableRooms - currentBooking.quantity)
+                } else {
+                    item
+                }
+            }
+        }
+
         val status = if (simulateFailure) "FAILED" else "SUCCESS"
         val transactionId = if (status == "SUCCESS") {
             "FAKE-${booking.bookingId}-${UUID.randomUUID().toString().take(8)}"
@@ -132,6 +149,16 @@ class InMemoryRoomRepository : RoomRepository {
         )
         _bookingHistory.value = _bookingHistory.value.map { item ->
             if (item.localId == booking.localId) updatedBooking else item
+        }
+
+        if (status == "FAILED") {
+            _rooms.value = _rooms.value.map { item ->
+                if (item.id == currentBooking.roomId) {
+                    item.copy(availableRooms = item.availableRooms + currentBooking.quantity)
+                } else {
+                    item
+                }
+            }
         }
 
         val result = PaymentResult(
@@ -186,7 +213,7 @@ class InMemoryRoomRepository : RoomRepository {
                 image = R.drawable.standard_room,
                 type = R.string.room_style_1,
                 typeKey = "standard",
-                pricePerNight = 50.0,
+                pricePerNight = 1_250_000L,
                 amenities = listOf("Wi-Fi", "TV"),
                 availableRooms = 10
             ),
@@ -195,7 +222,7 @@ class InMemoryRoomRepository : RoomRepository {
                 image = R.drawable.deluxe_room,
                 type = R.string.room_style_2,
                 typeKey = "deluxe",
-                pricePerNight = 80.0,
+                pricePerNight = 2_000_000L,
                 amenities = listOf("Wi-Fi", "TV", "Mini Bar"),
                 availableRooms = 10
             ),
@@ -204,7 +231,7 @@ class InMemoryRoomRepository : RoomRepository {
                 image = R.drawable.suite_room,
                 type = R.string.room_style_3,
                 typeKey = "suite",
-                pricePerNight = 120.0,
+                pricePerNight = 3_000_000L,
                 amenities = listOf("Wi-Fi", "TV", "Mini Bar", "Jacuzzi"),
                 availableRooms = 10
             ),
@@ -213,7 +240,7 @@ class InMemoryRoomRepository : RoomRepository {
                 image = R.drawable.executive_room,
                 type = R.string.room_style_4,
                 typeKey = "executive",
-                pricePerNight = 150.0,
+                pricePerNight = 3_750_000L,
                 amenities = listOf("Wi-Fi", "TV", "Mini Bar", "Jacuzzi", "Breakfast"),
                 availableRooms = 10
             ),
@@ -222,7 +249,7 @@ class InMemoryRoomRepository : RoomRepository {
                 image = R.drawable.family_room,
                 type = R.string.room_style_5,
                 typeKey = "family",
-                pricePerNight = 100.0,
+                pricePerNight = 2_500_000L,
                 amenities = listOf("Wi-Fi", "TV", "Kitchenette"),
                 availableRooms = 10
             )

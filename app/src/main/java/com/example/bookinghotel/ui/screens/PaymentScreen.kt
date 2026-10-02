@@ -33,9 +33,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.example.bookinghotel.R
 import com.example.bookinghotel.data.PaymentMethod
 import com.example.bookinghotel.data.VnPayPaymentSession
 import com.example.bookinghotel.ui.BookingViewModel
@@ -76,6 +78,12 @@ fun PaymentScreen(
     }
 
     val currentBooking = booking!!
+    LaunchedEffect(currentBooking.bookingId, currentBooking.status, currentBooking.paymentMethod) {
+        if (currentBooking.status == "PROCESSING" || currentBooking.paymentMethod == PaymentMethod.VNPAY.name) {
+            selectedMethod = PaymentMethod.VNPAY
+            simulateFailure = false
+        }
+    }
     val isProcessing = paymentState is PaymentUiState.Loading ||
         paymentState is PaymentUiState.VnPayReady ||
         paymentState is PaymentUiState.VnPayPending
@@ -207,7 +215,7 @@ fun PaymentScreen(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text("VNPAY Sandbox thật", fontWeight = FontWeight.Bold)
-                    Text("Không trừ tiền thật. Số tiền VND dùng cho sandbox được backend quy đổi từ giá demo hiện tại.")
+                    Text("Không trừ tiền thật. BookingHotel và VNPAY hiện dùng cùng một số tiền VND, không còn bước quy đổi trung gian.")
                     Text("Kết quả SUCCESS chỉ được ghi nhận sau khi backend nhận IPN hợp lệ từ VNPAY.")
                 }
             }
@@ -266,7 +274,9 @@ fun PaymentScreen(
                     session = state.session,
                     message = state.message,
                     onCheck = viewModel::checkVnPayPaymentStatus,
-                    onReopen = { openExternalPayment(context, state.session.paymentUrl) }
+                    onReopen = state.session?.let { session ->
+                        { openExternalPayment(context, session.paymentUrl) }
+                    }
                 )
             }
 
@@ -366,10 +376,10 @@ fun PaymentScreen(
 
 @Composable
 private fun VnPayWaitingCard(
-    session: VnPayPaymentSession,
+    session: VnPayPaymentSession?,
     message: String,
     onCheck: () -> Unit,
-    onReopen: () -> Unit
+    onReopen: (() -> Unit)?
 ) {
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -377,9 +387,11 @@ private fun VnPayWaitingCard(
             verticalArrangement = Arrangement.spacedBy(7.dp)
         ) {
             Text("Đang chờ VNPAY xác nhận", fontWeight = FontWeight.Bold)
-            Text("Mã tham chiếu: ${session.txnRef}")
-            Text("Số tiền sandbox: ${session.amountVnd.toVndLabel()}")
-            Text("Hết hạn: ${session.expiresAt.toDateTimeLabel()}")
+            session?.let {
+                Text("Mã tham chiếu: ${it.txnRef}")
+                Text("Số tiền: ${it.amountVnd.toVndLabel()}")
+                Text("Hết hạn: ${it.expiresAt.toDateTimeLabel()}")
+            }
             Text(message)
         }
     }
@@ -389,13 +401,17 @@ private fun VnPayWaitingCard(
             .fillMaxWidth()
             .testTag("vnpay_check_status_button")
     ) {
-        Text("Kiểm tra kết quả VNPAY")
+        Text(stringResource(R.string.check_vnpay_result))
     }
-    OutlinedButton(
-        onClick = onReopen,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text("Mở lại trang VNPAY")
+    if (onReopen != null) {
+        OutlinedButton(
+            onClick = onReopen,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("vnpay_reopen_button")
+        ) {
+            Text(stringResource(R.string.reopen_vnpay))
+        }
     }
 }
 
@@ -412,7 +428,8 @@ private fun PaymentReceipt(
             verticalArrangement = Arrangement.spacedBy(7.dp)
         ) {
             Text(
-                text = "Thanh toán thành công",
+                text = stringResource(R.string.payment_success),
+                modifier = Modifier.testTag("payment_success_message"),
                 color = MaterialTheme.colorScheme.secondary,
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.titleLarge

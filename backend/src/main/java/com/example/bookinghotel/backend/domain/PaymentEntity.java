@@ -104,6 +104,12 @@ public class PaymentEntity {
             String transactionStatus,
             Instant paidAt
     ) {
+        if (this.status != PaymentStatus.PENDING) {
+            throw new IllegalStateException("Only a PENDING provider payment can be completed");
+        }
+        if (status == PaymentStatus.PENDING) {
+            throw new IllegalArgumentException("Provider payment completion must be terminal");
+        }
         this.status = status;
         this.transactionId = transactionId;
         this.providerResponseCode = responseCode;

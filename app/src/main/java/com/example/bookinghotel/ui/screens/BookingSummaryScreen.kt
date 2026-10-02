@@ -23,6 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.example.bookinghotel.R
 import com.example.bookinghotel.ui.BookingViewModel
 import com.example.bookinghotel.ui.Screen
 import com.example.bookinghotel.ui.toBookingStatusLabel
@@ -64,7 +65,8 @@ fun BookingSummaryScreen(viewModel: BookingViewModel, navController: NavControll
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text(
-            text = "Đặt phòng thành công",
+            text = stringResource(R.string.booking_success),
+            modifier = Modifier.testTag("booking_success_message"),
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary

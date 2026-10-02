@@ -56,7 +56,7 @@ class RetrofitRoomRepositoryTest {
                     id = 2,
                     imageKey = "deluxe_room",
                     typeKey = "deluxe",
-                    pricePerNight = 80.0,
+                    pricePerNight = 2_000_000L,
                     amenities = listOf("Wi-Fi", "TV", "Mini Bar"),
                     availableRooms = 4,
                     lastUpdatedAt = 1234L
@@ -100,7 +100,7 @@ class RetrofitRoomRepositoryTest {
                     id = 1,
                     imageKey = "standard_room",
                     typeKey = "standard",
-                    pricePerNight = 50.0,
+                    pricePerNight = 1_250_000L,
                     amenities = listOf("Wi-Fi"),
                     availableRooms = 3,
                     lastUpdatedAt = 1234L
@@ -129,7 +129,7 @@ class RetrofitRoomRepositoryTest {
             bookingId = 7,
             room = api.roomsResponse.first().copy(availableRooms = 8),
             quantity = 2,
-            totalPrice = 100.0,
+            totalPrice = 2_500_000L,
             status = "PENDING_PAYMENT"
         )
 
@@ -175,8 +175,8 @@ class RetrofitRoomRepositoryTest {
             roomId = 1,
             roomTypeKey = "standard",
             quantity = 1,
-            pricePerNight = 50.0,
-            totalPrice = 50.0,
+            pricePerNight = 1_250_000L,
+            totalPrice = 1_250_000L,
             status = "PENDING_PAYMENT",
             createdAt = 1L
         )
@@ -207,8 +207,8 @@ class RetrofitRoomRepositoryTest {
             roomId = 1,
             roomTypeKey = "standard",
             quantity = 1,
-            pricePerNight = 50.0,
-            totalPrice = 50.0,
+            pricePerNight = 1_250_000L,
+            totalPrice = 1_250_000L,
             status = "PENDING_PAYMENT",
             createdAt = 1L
         )
@@ -227,7 +227,7 @@ class RetrofitRoomRepositoryTest {
                 id = 1,
                 imageKey = "standard_room",
                 typeKey = "standard",
-                pricePerNight = 50.0,
+                pricePerNight = 1_250_000L,
                 amenities = listOf("Wi-Fi", "TV"),
                 availableRooms = 10
             )
@@ -238,7 +238,7 @@ class RetrofitRoomRepositoryTest {
             bookingId = 1,
             room = roomsResponse.first().copy(availableRooms = 9),
             quantity = 1,
-            totalPrice = 50.0,
+            totalPrice = 1_250_000L,
             status = "PENDING_PAYMENT"
         )
 

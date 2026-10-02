@@ -24,15 +24,18 @@ public class PaymentService {
     private final BookingJpaRepository bookingRepository;
     private final PaymentJpaRepository paymentRepository;
     private final CurrentUserService currentUserService;
+    private final BookingLifecycleService bookingLifecycleService;
 
     public PaymentService(
             BookingJpaRepository bookingRepository,
             PaymentJpaRepository paymentRepository,
-            CurrentUserService currentUserService
+            CurrentUserService currentUserService,
+            BookingLifecycleService bookingLifecycleService
     ) {
         this.bookingRepository = bookingRepository;
         this.paymentRepository = paymentRepository;
         this.currentUserService = currentUserService;
+        this.bookingLifecycleService = bookingLifecycleService;
     }
 
     @Transactional
@@ -51,12 +54,13 @@ public class PaymentService {
         }
 
         PaymentMethod method = parseMethod(request.method());
-        booking.setStatus(BookingStatus.PROCESSING);
+        bookingLifecycleService.ensureInventoryReservedForRetry(booking, null);
+        bookingLifecycleService.markProcessing(booking);
         bookingRepository.save(booking);
 
         Instant now = Instant.now();
         if (request.simulateFailure()) {
-            booking.setStatus(BookingStatus.FAILED);
+            bookingLifecycleService.markFailedAndRelease(booking);
             PaymentEntity payment = paymentRepository.save(new PaymentEntity(
                     booking,
                     method,
@@ -70,7 +74,7 @@ public class PaymentService {
         }
 
         String transactionId = "TXN-" + bookingId + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase(Locale.ROOT);
-        booking.setStatus(BookingStatus.SUCCESS);
+        bookingLifecycleService.markSuccessful(booking);
         PaymentEntity payment = paymentRepository.save(new PaymentEntity(
                 booking,
                 method,

@@ -4,7 +4,7 @@ public record AdminBookingResponse(
         int bookingId,
         RoomResponse room,
         int quantity,
-        double totalPrice,
+        long totalPrice,
         String status,
         long checkInDate,
         long checkOutDate,

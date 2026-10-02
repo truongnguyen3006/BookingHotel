@@ -2,8 +2,8 @@ package com.example.bookinghotel.ui
 
 enum class PriceFilter {
     ALL,
-    UNDER_100,
-    AT_LEAST_100
+    UNDER_2_5_MILLION,
+    AT_LEAST_2_5_MILLION
 }
 
 enum class RoomSortOption {

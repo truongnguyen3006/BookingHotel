@@ -23,7 +23,7 @@ class InMemoryRoomRepositoryTest {
 
         val booking = result.getOrThrow()
         assertEquals(2, booking.quantity)
-        assertEquals(100.0, booking.totalPrice, 0.0)
+        assertEquals(2_500_000L, booking.totalPrice)
         assertEquals("PENDING_PAYMENT", booking.status)
 
         val history = repository.bookingHistory.first()
@@ -60,6 +60,7 @@ class InMemoryRoomRepositoryTest {
         assertEquals("FAILED", result.status)
         assertNull(result.transactionId)
         assertEquals("FAILED", repository.bookingHistory.first().first().status)
+        assertEquals(10, repository.getRoomById(1)?.availableRooms)
     }
 
     @Test
@@ -84,6 +85,7 @@ class InMemoryRoomRepositoryTest {
         assertNotNull(retry.transactionId)
         assertEquals("SUCCESS", repository.bookingHistory.first().first().status)
         assertEquals(1, repository.bookingHistory.first().size)
+        assertEquals(9, repository.getRoomById(1)?.availableRooms)
     }
 
     @Test
@@ -125,6 +127,6 @@ class InMemoryRoomRepositoryTest {
 
         assertEquals(3, booking.nights)
         assertEquals(3, booking.guests)
-        assertEquals(300.0, booking.totalPrice, 0.0)
+        assertEquals(7_500_000L, booking.totalPrice)
     }
 }

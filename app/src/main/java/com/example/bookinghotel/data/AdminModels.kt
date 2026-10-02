@@ -3,7 +3,7 @@ package com.example.bookinghotel.data
 data class AdminDashboard(
     val totalBookings: Long,
     val paidBookings: Long,
-    val totalRevenue: Double,
+    val totalRevenue: Long,
     val roomTypes: Long,
     val availableRoomInventory: Long
 )
@@ -19,7 +19,7 @@ data class AdminBooking(
     val bookingId: Int,
     val room: Room,
     val quantity: Int,
-    val totalPrice: Double,
+    val totalPrice: Long,
     val status: String,
     val checkInDate: Long,
     val checkOutDate: Long,

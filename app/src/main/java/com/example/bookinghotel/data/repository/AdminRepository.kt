@@ -7,6 +7,6 @@ import com.example.bookinghotel.data.Room
 interface AdminRepository {
     suspend fun getDashboard(): Result<AdminDashboard>
     suspend fun getRooms(): Result<List<Room>>
-    suspend fun updateRoom(roomId: Int, pricePerNight: Double, availableRooms: Int): Result<Room>
+    suspend fun updateRoom(roomId: Int, pricePerNight: Long, availableRooms: Int): Result<Room>
     suspend fun getBookings(): Result<List<AdminBooking>>
 }

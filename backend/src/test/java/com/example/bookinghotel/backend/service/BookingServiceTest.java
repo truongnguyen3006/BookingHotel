@@ -9,7 +9,6 @@ import com.example.bookinghotel.backend.repository.BookingJpaRepository;
 import com.example.bookinghotel.backend.repository.RoomJpaRepository;
 import org.junit.jupiter.api.Test;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.LinkedHashSet;
@@ -28,7 +27,7 @@ class BookingServiceTest {
         RoomEntity room = new RoomEntity(
                 "standard_room",
                 "standard",
-                new BigDecimal("50.00"),
+                1_250_000L,
                 new LinkedHashSet<>(),
                 1
         );

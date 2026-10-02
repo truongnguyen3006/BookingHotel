@@ -38,7 +38,7 @@ import com.example.bookinghotel.ui.toRoomLabel
 fun AdminRoomsScreen(
     state: AdminUiState,
     onRefresh: () -> Unit,
-    onUpdateRoom: (roomId: Int, pricePerNight: Double, availableRooms: Int) -> Unit,
+    onUpdateRoom: (roomId: Int, pricePerNight: Long, availableRooms: Int) -> Unit,
     onClearMessage: () -> Unit
 ) {
     var editingRoom by remember { mutableStateOf<Room?>(null) }
@@ -125,13 +125,13 @@ fun AdminRoomsScreen(
 private fun EditRoomDialog(
     room: Room,
     onDismiss: () -> Unit,
-    onSave: (Double, Int) -> Unit
+    onSave: (Long, Int) -> Unit
 ) {
     var priceText by remember(room.id) { mutableStateOf(room.pricePerNight.toString()) }
     var availableText by remember(room.id) { mutableStateOf(room.availableRooms.toString()) }
-    val price = priceText.toDoubleOrNull()
+    val price = priceText.toLongOrNull()
     val available = availableText.toIntOrNull()
-    val valid = price != null && price > 0.0 && available != null && available >= 0
+    val valid = price != null && price > 0L && available != null && available >= 0
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -141,9 +141,9 @@ private fun EditRoomDialog(
                 OutlinedTextField(
                     value = priceText,
                     onValueChange = { priceText = it },
-                    label = { Text("Giá mỗi đêm (USD)") },
+                    label = { Text("Giá mỗi đêm (VND)") },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
                 OutlinedTextField(
                     value = availableText,

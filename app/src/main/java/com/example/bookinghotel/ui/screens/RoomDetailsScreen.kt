@@ -106,7 +106,7 @@ fun RoomDetailsScreen(viewModel: BookingViewModel, navController: NavController)
         )
 
         val validationError = when {
-            quantityValue <= 0 -> "Số lượng đặt phòng tối thiểu là 1."
+            quantityValue <= 0 -> stringResource(com.example.bookinghotel.R.string.quantity_min_error)
             quantityValue > currentRoom.availableRooms -> "Số lượng yêu cầu vượt quá số phòng sẵn có!"
             guestValue <= 0 -> "Số khách tối thiểu là 1."
             checkInDate < today -> "Ngày nhận phòng không được ở trong quá khứ."
@@ -237,7 +237,8 @@ fun RoomDetailsScreen(viewModel: BookingViewModel, navController: NavController)
             if (validationError.isNotEmpty()) {
                 Text(
                     text = validationError,
-                    color = MaterialTheme.colorScheme.error
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.testTag("booking_validation_error")
                 )
             }
 

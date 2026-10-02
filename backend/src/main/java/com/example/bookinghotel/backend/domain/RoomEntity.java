@@ -11,7 +11,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
 
-import java.math.BigDecimal;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -28,8 +27,9 @@ public class RoomEntity {
     @Column(name = "type_key", nullable = false, unique = true, length = 100)
     private String typeKey;
 
-    @Column(name = "price_per_night", nullable = false, precision = 10, scale = 2)
-    private BigDecimal pricePerNight;
+    /** Native VND amount. No floating-point money is used in the domain model. */
+    @Column(name = "price_per_night", nullable = false)
+    private long pricePerNight;
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "room_amenities", joinColumns = @JoinColumn(name = "room_id"))
@@ -41,7 +41,7 @@ public class RoomEntity {
 
     protected RoomEntity() {}
 
-    public RoomEntity(String imageKey, String typeKey, BigDecimal pricePerNight, Set<String> amenities, int availableRooms) {
+    public RoomEntity(String imageKey, String typeKey, long pricePerNight, Set<String> amenities, int availableRooms) {
         this.imageKey = imageKey;
         this.typeKey = typeKey;
         this.pricePerNight = pricePerNight;
@@ -52,8 +52,8 @@ public class RoomEntity {
     public Integer getId() { return id; }
     public String getImageKey() { return imageKey; }
     public String getTypeKey() { return typeKey; }
-    public BigDecimal getPricePerNight() { return pricePerNight; }
-    public void setPricePerNight(BigDecimal pricePerNight) { this.pricePerNight = pricePerNight; }
+    public long getPricePerNight() { return pricePerNight; }
+    public void setPricePerNight(long pricePerNight) { this.pricePerNight = pricePerNight; }
     public Set<String> getAmenities() { return amenities; }
     public int getAvailableRooms() { return availableRooms; }
     public void setAvailableRooms(int availableRooms) { this.availableRooms = availableRooms; }

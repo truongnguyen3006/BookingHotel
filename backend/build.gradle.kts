@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.example.bookinghotel"
-version = "1.0.0-SNAPSHOT"
+version = "1.0.0"
 
 description = "Booking Hotel Spring Boot REST API"
 

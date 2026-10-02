@@ -8,7 +8,7 @@ data class RoomCacheEntity(
     @PrimaryKey val id: Int,
     val imageKey: String,
     val typeKey: String,
-    val pricePerNight: Double,
+    val pricePerNight: Long,
     val amenities: List<String>,
     val availableRooms: Int,
     val lastUpdatedAt: Long

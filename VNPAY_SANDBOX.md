@@ -33,12 +33,14 @@ VNP_HASH_SECRET=<your sandbox HashSecret>
 VNP_PAY_URL=https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
 VNP_RETURN_URL=https://bookinghotel-production.up.railway.app/api/payments/vnpay/return
 VNP_EXPIRE_MINUTES=15
-VNP_VND_PER_PRICE_UNIT=25000
+VNP_CONFIRMATION_GRACE_SECONDS=120
+BOOKING_RESERVATION_MINUTES=15
+BOOKING_EXPIRATION_SCAN_MS=60000
 ```
 
-The current catalog still uses demo USD-like price units. `VNP_VND_PER_PRICE_UNIT=25000` means a demo total of `50.00` is charged as `1,250,000 VND` in sandbox. If the catalog is migrated to VND later, set this multiplier to `1` and migrate the stored prices accordingly.
+The catalog now stores native VND as integer `Long/BIGINT` values end-to-end. `VNP_VND_PER_PRICE_UNIT` has been removed and must also be removed from Railway. A room price such as `1,250,000` is already VND; when a VNPAY request is signed, only the protocol field is scaled as `vnp_Amount = amountVnd * 100`.
 
-After adding/changing variables, redeploy the backend. Flyway migration `V3__vnpay_payment_provider.sql` will add the provider fields to `payments` automatically.
+After adding/changing variables, redeploy the backend. Flyway will apply the pending migrations automatically. In the combined v1.0.0 patch, `V4__booking_reservation_lifecycle.sql` hardens booking inventory lifecycle and `V5__money_vnd_bigint.sql` migrates legacy price units to native VND `BIGINT`.
 
 ## VNPAY IPN URL
 
@@ -138,8 +140,8 @@ This is sandbox data only; it does not charge real money.
 3. On Payment, select `VNPAY`.
 4. Confirm -> browser opens VNPAY Sandbox.
 5. Complete the sandbox payment.
-6. Return to BookingHotel.
-7. Tap **Kiểm tra kết quả VNPAY**.
+6. Return to BookingHotel. The `bookinghotel://payment-result` deep link triggers an automatic backend status refresh.
+7. If needed, History/Payment also provides **Kiểm tra kết quả VNPAY**.
 8. Expected: `SUCCESS`, VNPAY transaction id, payment time, booking history updated.
 9. In MySQL/Railway, the `payments` row should contain `provider_reference`, `provider_response_code=00`, `provider_transaction_status=00`, `amount_vnd`, and `paid_at`.
 

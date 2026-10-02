@@ -1,5 +1,6 @@
 package com.example.bookinghotel
 
+import android.net.Uri
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -44,7 +45,9 @@ import com.example.bookinghotel.ui.screens.admin.AdminRoomsScreen
 @Composable
 fun BookingHotelApp(
     modifier: Modifier = Modifier,
-    authViewModel: AuthViewModel = hiltViewModel()
+    authViewModel: AuthViewModel = hiltViewModel(),
+    paymentReturnUri: Uri? = null,
+    onPaymentReturnConsumed: () -> Unit = {}
 ) {
     val session by authViewModel.session.collectAsState()
     val currentSession = session
@@ -63,7 +66,9 @@ fun BookingHotelApp(
         UserBookingHotelEntry(
             modifier = modifier,
             session = currentSession,
-            onLogout = authViewModel::logout
+            onLogout = authViewModel::logout,
+            paymentReturnUri = paymentReturnUri,
+            onPaymentReturnConsumed = onPaymentReturnConsumed
         )
     }
 }
@@ -73,6 +78,8 @@ private fun UserBookingHotelEntry(
     modifier: Modifier,
     session: AuthSession,
     onLogout: () -> Unit,
+    paymentReturnUri: Uri?,
+    onPaymentReturnConsumed: () -> Unit,
     viewModel: BookingViewModel = hiltViewModel()
 ) {
     LaunchedEffect(session.user.id) {
@@ -83,7 +90,9 @@ private fun UserBookingHotelEntry(
         modifier = modifier,
         viewModel = viewModel,
         session = session,
-        onLogout = onLogout
+        onLogout = onLogout,
+        paymentReturnUri = paymentReturnUri,
+        onPaymentReturnConsumed = onPaymentReturnConsumed
     )
 }
 
@@ -93,11 +102,33 @@ fun BookingHotelAuthenticatedContent(
     modifier: Modifier = Modifier,
     viewModel: BookingViewModel,
     session: AuthSession = demoSession(),
-    onLogout: () -> Unit = {}
+    onLogout: () -> Unit = {},
+    paymentReturnUri: Uri? = null,
+    onPaymentReturnConsumed: () -> Unit = {}
 ) {
     val navController = rememberNavController()
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
     val canNavigateBack = currentRoute != null && currentRoute != Screen.List.route
+    val bookingHistory by viewModel.bookingHistory.collectAsState()
+
+    // VNPAY browser return is only a signal to re-query our backend. The deep-link query
+    // parameters never decide SUCCESS/FAILED by themselves.
+    LaunchedEffect(paymentReturnUri, bookingHistory) {
+        val uri = paymentReturnUri ?: return@LaunchedEffect
+        val bookingId = uri.getQueryParameter("bookingId")?.toIntOrNull() ?: 0
+        if (bookingId <= 0) {
+            onPaymentReturnConsumed()
+            return@LaunchedEffect
+        }
+        val booking = bookingHistory.firstOrNull { it.bookingId == bookingId }
+            ?: return@LaunchedEffect
+        viewModel.resumePayment(booking)
+        navController.navigate(Screen.Payment.route) {
+            launchSingleTop = true
+        }
+        viewModel.checkVnPayPaymentStatus()
+        onPaymentReturnConsumed()
+    }
 
     Scaffold(
         modifier = modifier,
@@ -134,7 +165,7 @@ fun BookingHotelAuthenticatedContent(
             composable(Screen.List.route) { RoomListScreen(viewModel, navController) }
             composable(Screen.Detail.route) { RoomDetailsScreen(viewModel, navController) }
             composable(Screen.Summary.route) { BookingSummaryScreen(viewModel, navController) }
-            composable(Screen.History.route) { BookingHistoryScreen(viewModel) }
+            composable(Screen.History.route) { BookingHistoryScreen(viewModel, navController) }
             composable(Screen.Payment.route) { PaymentScreen(viewModel, navController) }
             composable(Screen.Profile.route) { ProfileScreen(session, onLogout) }
         }
