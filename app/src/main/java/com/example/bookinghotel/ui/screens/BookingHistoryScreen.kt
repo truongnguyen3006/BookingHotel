@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -27,6 +28,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import com.example.bookinghotel.ui.bookingStatus
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -55,6 +58,8 @@ fun BookingHistoryScreen(
     navController: NavController
 ) {
     val bookings by viewModel.bookingHistory.collectAsState()
+    val loading by viewModel.historyLoading.collectAsState()
+    val error by viewModel.historyError.collectAsState()
     var filter by remember { mutableStateOf(HistoryFilter.ALL) }
 
     LaunchedEffect(Unit) {
@@ -71,6 +76,11 @@ fun BookingHistoryScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
+        if (loading) CircularProgressIndicator(modifier = Modifier.testTag("history_loading"))
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("history_error")) }
+        OutlinedButton(onClick = viewModel::refreshBookingHistory, enabled = !loading,
+            modifier = Modifier.testTag("history_refresh_button")) { Text(stringResource(R.string.tai_lai)) }
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -85,10 +95,10 @@ fun BookingHistoryScreen(
                     label = {
                         Text(
                             when (item) {
-                                HistoryFilter.ALL -> "Tất cả"
-                                HistoryFilter.PENDING -> "Chờ thanh toán"
-                                HistoryFilter.SUCCESS -> "Đã thanh toán"
-                                HistoryFilter.FAILED -> "Thất bại"
+                                HistoryFilter.ALL -> stringResource(R.string.tat_ca)
+                                HistoryFilter.PENDING -> stringResource(R.string.cho_thanh_toan)
+                                HistoryFilter.SUCCESS -> stringResource(R.string.a_thanh_toan)
+                                HistoryFilter.FAILED -> stringResource(R.string.that_bai)
                             }
                         )
                     }
@@ -96,7 +106,7 @@ fun BookingHistoryScreen(
             }
         }
 
-        if (visibleBookings.isEmpty()) {
+        if (visibleBookings.isEmpty() && !loading) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -106,9 +116,9 @@ fun BookingHistoryScreen(
             ) {
                 Text(
                     if (bookings.isEmpty()) {
-                        "Bạn chưa có lịch sử đặt phòng."
+                        stringResource(R.string.ban_chua_co_lich_su_at_phong)
                     } else {
-                        "Không có booking phù hợp với bộ lọc."
+                        stringResource(R.string.khong_co_booking_phu_hop_voi_bo_loc)
                     }
                 )
             }
@@ -157,29 +167,29 @@ private fun BookingHistoryItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Booking #${booking.bookingId}",
+                    text = stringResource(R.string.booking, booking.bookingId),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 AssistChip(
                     onClick = {},
                     label = { Text(booking.status.toBookingStatusLabel()) },
-                    modifier = Modifier.testTag("booking_status_${booking.bookingId}")
+                    modifier = Modifier.testTag("booking_status_${booking.bookingId}").semantics { bookingStatus = booking.status }
                 )
             }
 
-            Text("${booking.roomTypeKey.toRoomLabel()} • ${booking.quantity} phòng • ${booking.guests} khách")
-            Text("${booking.checkInDate.toDateLabel()} → ${booking.checkOutDate.toDateLabel()} • ${booking.nights} đêm")
+            Text(stringResource(R.string.phong_khach, booking.roomTypeKey.toRoomLabel(), booking.quantity, booking.guests))
+            Text(stringResource(R.string.em_117af8, booking.checkInDate.toDateLabel(), booking.checkOutDate.toDateLabel(), booking.nights))
             Text(
                 text = booking.totalPrice.toCurrencyLabel(),
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold
             )
-            Text("Tạo lúc: ${booking.createdAt.toDateTimeLabel()}")
+            Text(stringResource(R.string.tao_luc, booking.createdAt.toDateTimeLabel()))
 
-            booking.paymentMethod?.let { Text("Phương thức thanh toán: $it") }
-            booking.transactionId?.let { Text("Mã giao dịch: $it") }
-            booking.paidAt?.let { Text("Đã thanh toán: ${it.toDateTimeLabel()}") }
+            booking.paymentMethod?.let { Text(stringResource(R.string.phuong_thuc_thanh_toan, it)) }
+            booking.transactionId?.let { Text(stringResource(R.string.ma_giao_dich, it)) }
+            booking.paidAt?.let { Text(stringResource(R.string.a_thanh_toan_28dff9, it.toDateTimeLabel())) }
 
             when (booking.status) {
                 "PENDING_PAYMENT" -> Button(

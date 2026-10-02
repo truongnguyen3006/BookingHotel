@@ -1,5 +1,7 @@
 package com.example.bookinghotel.ui.screens
 
+import androidx.compose.ui.res.stringResource
+import com.example.bookinghotel.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.bookinghotel.ui.AuthUiState
@@ -41,7 +44,7 @@ fun AuthScreen(viewModel: AuthViewModel) {
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            if (registerMode) "Tạo tài khoản" else "Đăng nhập",
+            if (registerMode) stringResource(R.string.tao_tai_khoan) else stringResource(R.string.ang_nhap),
             style = MaterialTheme.typography.headlineMedium
         )
         Spacer(Modifier.height(20.dp))
@@ -49,32 +52,35 @@ fun AuthScreen(viewModel: AuthViewModel) {
             OutlinedTextField(
                 value = displayName,
                 onValueChange = { displayName = it },
-                label = { Text("Tên hiển thị") },
+                label = { Text(stringResource(R.string.ten_hien_thi)) },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().testTag("auth_display_name"),
+                enabled = !loading
             )
             Spacer(Modifier.height(10.dp))
         }
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
-            label = { Text("Email") },
+            label = { Text(stringResource(R.string.email)) },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().testTag("auth_email"),
+            enabled = !loading
         )
         Spacer(Modifier.height(10.dp))
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
-            label = { Text("Mật khẩu (tối thiểu 8 ký tự)") },
+            label = { Text(stringResource(R.string.mat_khau_toi_thieu_8_ky_tu)) },
             visualTransformation = PasswordVisualTransformation(),
             singleLine = true,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().testTag("auth_password"),
+            enabled = !loading
         )
         val currentState = state
         if (currentState is AuthUiState.Error) {
             Spacer(Modifier.height(10.dp))
-            Text(currentState.message, color = MaterialTheme.colorScheme.error)
+            Text(currentState.message, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("auth_error"))
         }
         Spacer(Modifier.height(18.dp))
         Button(
@@ -84,18 +90,18 @@ fun AuthScreen(viewModel: AuthViewModel) {
                 else viewModel.login(email, password)
             },
             enabled = !loading && email.isNotBlank() && password.length >= 8 && (!registerMode || displayName.isNotBlank()),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().testTag("auth_submit")
         ) {
             if (loading) CircularProgressIndicator(strokeWidth = 2.dp)
-            else Text(if (registerMode) "Đăng ký" else "Đăng nhập")
+            else Text(if (registerMode) stringResource(R.string.ang_ky) else stringResource(R.string.ang_nhap))
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(onClick = { registerMode = !registerMode; viewModel.clearError() }) {
-                Text(if (registerMode) "Đã có tài khoản? Đăng nhập" else "Chưa có tài khoản? Đăng ký")
+            TextButton(onClick = { registerMode = !registerMode; viewModel.clearError() }, enabled = !loading, modifier = Modifier.testTag("auth_mode_toggle")) {
+                Text(if (registerMode) stringResource(R.string.a_co_tai_khoan_ang_nhap) else stringResource(R.string.chua_co_tai_khoan_ang_ky))
             }
         }
     }

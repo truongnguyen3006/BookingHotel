@@ -30,7 +30,7 @@ class BookingViewModelTest {
     @Test
     fun bookRoom_validQuantity_updatesViewModelState() {
         val repository = InMemoryRoomRepository()
-        val viewModel = BookingViewModel(repository)
+        val viewModel = BookingViewModel(repository, TestAppStrings)
         viewModel.selectRoom(repository.getRoomById(1)!!)
 
         viewModel.bookRoom(quantity = 2)
@@ -44,7 +44,7 @@ class BookingViewModelTest {
     @Test
     fun bookRoom_invalidQuantity_returnsValidationErrorWithoutChangingInventory() {
         val repository = InMemoryRoomRepository()
-        val viewModel = BookingViewModel(repository)
+        val viewModel = BookingViewModel(repository, TestAppStrings)
         viewModel.selectRoom(repository.getRoomById(1)!!)
 
         viewModel.bookRoom(quantity = -1)
@@ -58,7 +58,7 @@ class BookingViewModelTest {
     @Test
     fun payment_failedThenRetried_movesFromFailedToSuccess() {
         val repository = InMemoryRoomRepository()
-        val viewModel = BookingViewModel(repository)
+        val viewModel = BookingViewModel(repository, TestAppStrings)
         viewModel.selectRoom(repository.getRoomById(1)!!)
         viewModel.bookRoom(quantity = 1)
 
@@ -84,7 +84,7 @@ class BookingViewModelTest {
         val viewModel = BookingViewModel(
             ConfigurableRepository(
                 refreshResult = Result.failure(IOException("offline"))
-            )
+            ), TestAppStrings
         )
 
         assertEquals(
@@ -96,7 +96,7 @@ class BookingViewModelTest {
 
     @Test
     fun payBooking_withoutBooking_returnsErrorImmediately() {
-        val viewModel = BookingViewModel(InMemoryRoomRepository())
+        val viewModel = BookingViewModel(InMemoryRoomRepository(), TestAppStrings)
 
         viewModel.payBooking(
             method = PaymentMethod.CARD,
@@ -109,6 +109,80 @@ class BookingViewModelTest {
             "Không tìm thấy booking để thanh toán.",
             (state as PaymentUiState.Error).message
         )
+    }
+
+    @Test
+    fun rapidDoubleSubmit_createsOnlyOneBookingWhileRequestIsPending() = kotlinx.coroutines.test.runTest {
+        val delegate = InMemoryRoomRepository()
+        val release = kotlinx.coroutines.CompletableDeferred<Unit>()
+        var calls = 0
+        val repository = object : RoomRepository by delegate {
+            override suspend fun bookRoom(roomId: Int, quantity: Int, checkInDate: Long, checkOutDate: Long, guests: Int): Result<Booking> {
+                calls++
+                release.await()
+                return delegate.bookRoom(roomId, quantity, checkInDate, checkOutDate, guests)
+            }
+        }
+        val vm = BookingViewModel(repository, TestAppStrings)
+        vm.selectRoom(delegate.getRoomById(1)!!)
+        vm.bookRoom(1); vm.bookRoom(1); vm.bookRoom(1)
+        assertEquals(1, calls)
+        assertTrue(vm.bookingState.value is BookingUiState.Loading)
+        release.complete(Unit)
+        assertTrue(vm.bookingState.value is BookingUiState.Success)
+        assertEquals(9, delegate.getRoomById(1)?.availableRooms)
+    }
+
+    @Test
+    fun paymentReturn_fetchesOwnedHistoryBeforeResolvingForeignId() {
+        val delegate = InMemoryRoomRepository()
+        var refreshes = 0
+        val repository = object : RoomRepository by delegate {
+            override suspend fun refreshBookingHistory(): Result<Unit> {
+                refreshes++
+                return Result.success(Unit)
+            }
+        }
+        val vm = BookingViewModel(repository, TestAppStrings)
+        var resolved: Booking? = null
+        vm.handlePaymentReturn(999) { resolved = it }
+        assertEquals(1, refreshes)
+        assertEquals(null, resolved)
+        assertTrue(vm.historyError.value != null)
+    }
+
+    @Test
+    fun paymentReturn_offlineDoesNotTrustPreviouslyCachedSuccess() {
+        val delegate = InMemoryRoomRepository()
+        val vmForBooking = BookingViewModel(delegate, TestAppStrings)
+        vmForBooking.selectRoom(delegate.getRoomById(1)!!)
+        vmForBooking.bookRoom(1)
+        val booking = vmForBooking.lastBooking.value!!
+        vmForBooking.payBooking(PaymentMethod.CARD, false)
+        val repository = object : RoomRepository by delegate {
+            override suspend fun refreshBookingHistory(): Result<Unit> = Result.failure(IOException("offline"))
+        }
+        val vm = BookingViewModel(repository, TestAppStrings)
+        var resolved: Booking? = booking
+        vm.handlePaymentReturn(booking.bookingId) { resolved = it }
+        assertEquals(null, resolved)
+        assertTrue(vm.historyError.value != null)
+        assertTrue(vm.paymentState.value is PaymentUiState.Idle)
+    }
+
+    @Test
+    fun paymentReturn_repeatedTerminalResultUsesBackendHistoryWithoutStartingPayment() {
+        val delegate = InMemoryRoomRepository()
+        val vm = BookingViewModel(delegate, TestAppStrings)
+        vm.selectRoom(delegate.getRoomById(1)!!)
+        vm.bookRoom(1)
+        vm.payBooking(PaymentMethod.CARD, false)
+        val id = vm.lastBooking.value!!.bookingId
+        repeat(2) {
+            vm.handlePaymentReturn(id) { vm.resumePayment(requireNotNull(it)) }
+            assertTrue(vm.paymentState.value is PaymentUiState.Success)
+        }
+        assertEquals(9, delegate.getRoomById(1)?.availableRooms)
     }
 
     private class ConfigurableRepository(

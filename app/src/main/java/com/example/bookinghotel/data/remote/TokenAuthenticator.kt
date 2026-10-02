@@ -1,9 +1,9 @@
 package com.example.bookinghotel.data.remote
 
 import com.example.bookinghotel.data.auth.AuthSession
-import com.example.bookinghotel.data.auth.TokenStore
+import com.example.bookinghotel.data.auth.SessionStore
+import com.example.bookinghotel.data.auth.RequestSession
 import com.example.bookinghotel.data.auth.UserProfile
-import com.example.bookinghotel.data.local.BookingDao
 import com.example.bookinghotel.data.remote.dto.RefreshTokenRequestDto
 import javax.inject.Inject
 import kotlinx.coroutines.runBlocking
@@ -15,8 +15,7 @@ import retrofit2.HttpException
 
 class TokenAuthenticator @Inject constructor(
     private val authApi: AuthApiService,
-    private val tokenStore: TokenStore,
-    private val bookingDao: BookingDao,
+    private val tokenStore: SessionStore,
     private val refreshCoordinator: TokenRefreshCoordinator
 ) : Authenticator {
 
@@ -29,15 +28,17 @@ class TokenAuthenticator @Inject constructor(
             ?.trim()
             ?.takeIf { it.isNotBlank() }
 
+        val requestSession = response.request().tag(RequestSession::class.java) ?: return null
         val session = runBlocking {
+            if (tokenStore.currentSession()?.sessionId != requestSession.sessionId) return@runBlocking null
             refreshCoordinator.refreshSingleFlight(
                 failedAccessToken = failedAccessToken,
-                currentValue = tokenStore::currentSession,
+                currentValue = { tokenStore.currentSession()?.takeIf { it.sessionId == requestSession.sessionId } },
                 accessTokenOf = AuthSession::accessToken
             ) { current ->
                 try {
                     val refreshed = authApi.refresh(RefreshTokenRequestDto(current.refreshToken))
-                    AuthSession(
+                    val updated = AuthSession(
                         accessToken = refreshed.accessToken,
                         refreshToken = refreshed.refreshToken,
                         accessTokenExpiresAt = System.currentTimeMillis() + refreshed.expiresInSeconds * 1000L,
@@ -47,19 +48,21 @@ class TokenAuthenticator @Inject constructor(
                             refreshed.user.displayName,
                             refreshed.user.role
                         )
-                    ).also { tokenStore.save(it) }
-                } catch (throwable: Throwable) {
-                    if (throwable is HttpException && throwable.code() == 401) {
+                    )
+                    tokenStore.saveIfCurrent(current, updated)
+                } catch (throwable: Exception) {
+                    if (throwable is kotlinx.coroutines.CancellationException) throw throwable
+                    if (throwable is HttpException && throwable.code() in listOf(401, 403)) {
                         // A rotated/revoked refresh token means this session is no longer valid.
                         // Clear both auth state and user-specific cache immediately.
-                        tokenStore.clear()
-                        bookingDao.clearBookings()
+                        tokenStore.clearIfCurrent(current)
                     }
                     null
                 }
             }
         } ?: return null
 
+        if (runBlocking { tokenStore.currentSession()?.sessionId } != requestSession.sessionId) return null
         return response.request().newBuilder()
             .header("Authorization", "Bearer ${session.accessToken}")
             .build()

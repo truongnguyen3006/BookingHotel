@@ -37,7 +37,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Test and build Spring Boot JAR
-        run: ./gradlew --no-daemon test bootJar
+        run: ./gradlew --no-daemon test integrationTest build
 
       - name: Upload backend JAR
         uses: actions/upload-artifact@v7

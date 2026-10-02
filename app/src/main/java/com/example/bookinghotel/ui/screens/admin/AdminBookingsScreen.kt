@@ -1,5 +1,7 @@
 package com.example.bookinghotel.ui.screens.admin
 
+import androidx.compose.ui.res.stringResource
+import com.example.bookinghotel.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -43,9 +45,9 @@ fun AdminBookingsScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Tất cả booking", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.tat_ca_booking), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             OutlinedButton(onClick = onRefresh, enabled = !state.loadingBookings) {
-                Text("Làm mới")
+                Text(stringResource(R.string.lam_moi))
             }
         }
 
@@ -62,6 +64,9 @@ fun AdminBookingsScreen(
             }
         }
 
+        if (!state.loadingBookings && state.bookings.isEmpty()) {
+            Text(stringResource(R.string.admin_bookings_empty))
+        }
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -80,21 +85,21 @@ private fun AdminBookingCard(booking: AdminBooking) {
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
-            Text("Booking #${booking.bookingId}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text("Khách: ${booking.userDisplayName ?: "--"} (${booking.userEmail ?: "--"})")
-            Text("Phòng: ${booking.room.typeKey.toRoomLabel()} × ${booking.quantity}")
-            Text("${booking.checkInDate.toDateLabel()} → ${booking.checkOutDate.toDateLabel()} • ${booking.nights} đêm • ${booking.guests} khách")
-            Text("Tổng: ${booking.totalPrice.toCurrencyLabel()}")
-            Text("Booking: ${booking.status.toBookingStatusLabel()}")
-            Text("Tạo lúc: ${booking.createdAt.toDateTimeLabel()}", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.booking, booking.bookingId), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.khach, booking.userDisplayName ?: "--", booking.userEmail ?: "--"))
+            Text(stringResource(R.string.phong, booking.room.typeKey.toRoomLabel(), booking.quantity))
+            Text(stringResource(R.string.em_khach, booking.checkInDate.toDateLabel(), booking.checkOutDate.toDateLabel(), booking.nights, booking.guests))
+            Text(stringResource(R.string.tong, booking.totalPrice.toCurrencyLabel()))
+            Text(stringResource(R.string.booking_70d4e2, booking.status.toBookingStatusLabel()))
+            Text(stringResource(R.string.tao_luc, booking.createdAt.toDateTimeLabel()), style = MaterialTheme.typography.bodySmall)
 
             val payment = booking.payment
             if (payment == null) {
-                Text("Payment: Chưa có giao dịch", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.payment_chua_co_giao_dich), color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
-                Text("Payment: ${payment.status} • ${payment.method}")
-                payment.transactionId?.let { Text("Transaction: $it", style = MaterialTheme.typography.bodySmall) }
-                payment.paidAt?.let { Text("Paid at: ${it.toDateTimeLabel()}", style = MaterialTheme.typography.bodySmall) }
+                Text(stringResource(R.string.payment, payment.status, payment.method))
+                payment.transactionId?.let { Text(stringResource(R.string.transaction, it), style = MaterialTheme.typography.bodySmall) }
+                payment.paidAt?.let { Text(stringResource(R.string.paid_at, it.toDateTimeLabel()), style = MaterialTheme.typography.bodySmall) }
             }
         }
     }

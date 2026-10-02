@@ -8,7 +8,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [BookingEntity::class, RoomCacheEntity::class],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 @TypeConverters(RoomTypeConverters::class)
@@ -17,6 +17,14 @@ abstract class BookingDatabase : RoomDatabase() {
     abstract fun roomCacheDao(): RoomCacheDao
 
     companion object {
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Older private rows have no provable owner. Refetch after login.
+                database.execSQL("DELETE FROM bookings")
+                database.execSQL("ALTER TABLE bookings ADD COLUMN ownerSessionId TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE bookings ADD COLUMN checkInDate INTEGER NOT NULL DEFAULT 0")

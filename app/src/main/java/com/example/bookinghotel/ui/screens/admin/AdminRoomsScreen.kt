@@ -1,5 +1,7 @@
 package com.example.bookinghotel.ui.screens.admin
 
+import androidx.compose.ui.res.stringResource
+import com.example.bookinghotel.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -53,9 +55,9 @@ fun AdminRoomsScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Kho phòng", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.kho_phong), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             OutlinedButton(onClick = onRefresh, enabled = !state.loadingRooms) {
-                Text("Làm mới")
+                Text(stringResource(R.string.lam_moi))
             }
         }
 
@@ -75,6 +77,9 @@ fun AdminRoomsScreen(
             }
         }
 
+        if (!state.loadingRooms && state.rooms.isEmpty()) {
+            Text(stringResource(R.string.admin_rooms_empty))
+        }
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -86,9 +91,9 @@ fun AdminRoomsScreen(
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(room.typeKey.toRoomLabel(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("Giá/đêm: ${room.pricePerNight.toCurrencyLabel()}")
-                        Text("Còn lại: ${room.availableRooms} phòng")
-                        Text("Tiện nghi: ${room.amenities.joinToString()}", style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.gia_em_3b60d3, room.pricePerNight.toCurrencyLabel()))
+                        Text(stringResource(R.string.con_lai_phong, room.availableRooms))
+                        Text(stringResource(R.string.tien_nghi, room.amenities.joinToString()), style = MaterialTheme.typography.bodySmall)
                         Button(
                             onClick = {
                                 onClearMessage()
@@ -100,7 +105,7 @@ fun AdminRoomsScreen(
                             if (state.savingRoomId == room.id) {
                                 CircularProgressIndicator(strokeWidth = 2.dp)
                             } else {
-                                Text("Sửa giá / số lượng")
+                                Text(stringResource(R.string.sua_gia_so_luong))
                             }
                         }
                     }
@@ -135,20 +140,20 @@ private fun EditRoomDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Cập nhật ${room.typeKey.toRoomLabel()}") },
+        title = { Text(stringResource(R.string.cap_nhat, room.typeKey.toRoomLabel())) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
                     value = priceText,
                     onValueChange = { priceText = it },
-                    label = { Text("Giá mỗi đêm (VND)") },
+                    label = { Text(stringResource(R.string.gia_moi_em_vnd)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
                 OutlinedTextField(
                     value = availableText,
                     onValueChange = { availableText = it },
-                    label = { Text("Số phòng còn lại") },
+                    label = { Text(stringResource(R.string.so_phong_con_lai)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
@@ -159,11 +164,11 @@ private fun EditRoomDialog(
                 onClick = { onSave(price!!, available!!) },
                 enabled = valid
             ) {
-                Text("Lưu")
+                Text(stringResource(R.string.luu))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Hủy") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.huy)) }
         }
     )
 }

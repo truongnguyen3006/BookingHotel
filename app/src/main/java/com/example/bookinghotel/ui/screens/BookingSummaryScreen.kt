@@ -43,12 +43,12 @@ fun BookingSummaryScreen(viewModel: BookingViewModel, navController: NavControll
                 .padding(24.dp),
             verticalArrangement = Arrangement.Center
         ) {
-            Text("Không tìm thấy thông tin booking.")
+            Text(stringResource(R.string.khong_tim_thay_thong_tin_booking))
             OutlinedButton(
                 onClick = { navController.popBackStack(Screen.List.route, inclusive = false) },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Về danh sách phòng")
+                Text(stringResource(R.string.ve_danh_sach_phong))
             }
         }
         return
@@ -71,7 +71,7 @@ fun BookingSummaryScreen(viewModel: BookingViewModel, navController: NavControll
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
         )
-        Text("Mã booking #${currentBooking.bookingId}")
+        Text(stringResource(R.string.ma_booking, currentBooking.bookingId))
 
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             Column(
@@ -83,13 +83,13 @@ fun BookingSummaryScreen(viewModel: BookingViewModel, navController: NavControll
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
-                SummaryLine("Thời gian", "${currentBooking.checkInDate.toDateLabel()} → ${currentBooking.checkOutDate.toDateLabel()}")
-                SummaryLine("Số đêm", "${currentBooking.nights}")
-                SummaryLine("Số phòng", "${currentBooking.quantity}")
-                SummaryLine("Số khách", "${currentBooking.guests}")
-                SummaryLine("Giá/đêm", currentBooking.pricePerNight.toCurrencyLabel())
-                SummaryLine("Tổng tiền", currentBooking.totalPrice.toCurrencyLabel(), emphasized = true)
-                SummaryLine("Trạng thái", currentBooking.status.toBookingStatusLabel())
+                SummaryLine(stringResource(R.string.thoi_gian), stringResource(R.string.label, currentBooking.checkInDate.toDateLabel(), currentBooking.checkOutDate.toDateLabel()))
+                SummaryLine(stringResource(R.string.so_em), "${currentBooking.nights}")
+                SummaryLine(stringResource(R.string.so_phong), "${currentBooking.quantity}")
+                SummaryLine(stringResource(R.string.so_khach), "${currentBooking.guests}")
+                SummaryLine(stringResource(R.string.gia_em), currentBooking.pricePerNight.toCurrencyLabel())
+                SummaryLine(stringResource(R.string.tong_tien), currentBooking.totalPrice.toCurrencyLabel(), emphasized = true)
+                SummaryLine(stringResource(R.string.trang_thai), currentBooking.status.toBookingStatusLabel())
             }
         }
 
@@ -101,7 +101,7 @@ fun BookingSummaryScreen(viewModel: BookingViewModel, navController: NavControll
             )
         } else {
             Text(
-                text = "Booking đang giữ chỗ. Hãy hoàn tất thanh toán để xác nhận giao dịch.",
+                text = stringResource(R.string.booking_ang_giu_cho_hay_hoan_tat_thanh_toan_e_xac_nhan),
                 color = MaterialTheme.colorScheme.secondary
             )
             Button(
@@ -113,7 +113,7 @@ fun BookingSummaryScreen(viewModel: BookingViewModel, navController: NavControll
                     .fillMaxWidth()
                     .testTag("summary_pay_button")
             ) {
-                Text("Thanh toán ${currentBooking.totalPrice.toCurrencyLabel()}")
+                Text(stringResource(R.string.thanh_toan, currentBooking.totalPrice.toCurrencyLabel()))
             }
         }
 
@@ -121,14 +121,14 @@ fun BookingSummaryScreen(viewModel: BookingViewModel, navController: NavControll
             onClick = { navController.navigate(Screen.History.route) },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Xem lịch sử đặt phòng")
+            Text(stringResource(R.string.xem_lich_su_at_phong))
         }
 
         OutlinedButton(
             onClick = { navController.popBackStack(Screen.List.route, inclusive = false) },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Quay về màn hình chính")
+            Text(stringResource(R.string.quay_ve_man_hinh_chinh))
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -162,10 +162,10 @@ private fun PaymentReceiptCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text("Biên nhận thanh toán", fontWeight = FontWeight.Bold)
-            Text("Phương thức: ${paymentMethod ?: "--"}")
-            Text("Mã giao dịch: ${transactionId ?: "--"}")
-            Text("Thời gian: ${paidAt?.toDateTimeLabel() ?: "--"}")
+            Text(stringResource(R.string.bien_nhan_thanh_toan), fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.phuong_thuc, paymentMethod ?: "--"))
+            Text(stringResource(R.string.ma_giao_dich, transactionId ?: "--"))
+            Text(stringResource(R.string.thoi_gian_577a83, paidAt?.toDateTimeLabel() ?: "--"))
         }
     }
 }

@@ -29,7 +29,8 @@ object DatabaseModule {
             .addMigrations(
                 BookingDatabase.MIGRATION_1_2,
                 BookingDatabase.MIGRATION_2_3,
-                BookingDatabase.MIGRATION_3_4
+                BookingDatabase.MIGRATION_3_4,
+                BookingDatabase.MIGRATION_4_5
             )
             .build()
     }

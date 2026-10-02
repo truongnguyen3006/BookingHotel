@@ -1,5 +1,7 @@
 package com.example.bookinghotel.ui.screens.admin
 
+import androidx.compose.ui.res.stringResource
+import com.example.bookinghotel.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -35,7 +37,7 @@ fun AdminDashboardScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text(
-            text = "Tổng quan quản trị",
+            text = stringResource(R.string.tong_quan_quan_tri),
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold
         )
@@ -49,11 +51,11 @@ fun AdminDashboardScreen(
             }
         } else {
             state.dashboard?.let { dashboard ->
-                DashboardMetric("Tổng booking", dashboard.totalBookings.toString())
-                DashboardMetric("Booking đã thanh toán", dashboard.paidBookings.toString())
-                DashboardMetric("Doanh thu", dashboard.totalRevenue.toCurrencyLabel())
-                DashboardMetric("Loại phòng", dashboard.roomTypes.toString())
-                DashboardMetric("Phòng còn lại", dashboard.availableRoomInventory.toString())
+                DashboardMetric(stringResource(R.string.tong_booking), dashboard.totalBookings.toString())
+                DashboardMetric(stringResource(R.string.booking_a_thanh_toan), dashboard.paidBookings.toString())
+                DashboardMetric(stringResource(R.string.doanh_thu), dashboard.totalRevenue.toCurrencyLabel())
+                DashboardMetric(stringResource(R.string.loai_phong), dashboard.roomTypes.toString())
+                DashboardMetric(stringResource(R.string.phong_con_lai), dashboard.availableRoomInventory.toString())
             }
         }
 
@@ -65,13 +67,13 @@ fun AdminDashboardScreen(
         }
 
         Button(onClick = onOpenRooms, modifier = Modifier.fillMaxWidth()) {
-            Text("Quản lý phòng")
+            Text(stringResource(R.string.quan_ly_phong))
         }
         Button(onClick = onOpenBookings, modifier = Modifier.fillMaxWidth()) {
-            Text("Quản lý booking & payment")
+            Text(stringResource(R.string.quan_ly_booking_payment))
         }
         OutlinedButton(onClick = onRefresh, modifier = Modifier.fillMaxWidth()) {
-            Text("Làm mới dashboard")
+            Text(stringResource(R.string.lam_moi_dashboard))
         }
     }
 }

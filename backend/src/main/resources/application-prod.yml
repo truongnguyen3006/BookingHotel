@@ -17,3 +17,11 @@ security:
 server:
   port: ${PORT:8080}
   forward-headers-strategy: framework
+
+# Production cannot accept client-triggered simulated success.
+payment:
+  demo-enabled: false
+
+vnpay:
+  pay-url: ${VNP_PAY_URL}
+  return-url: ${VNP_RETURN_URL}

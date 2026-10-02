@@ -14,8 +14,10 @@ public interface PaymentJpaRepository extends JpaRepository<PaymentEntity, Long>
     Optional<PaymentEntity> findFirstByBooking_IdOrderByCreatedAtDesc(Integer bookingId);
     Optional<PaymentEntity> findByProviderReference(String providerReference);
 
-    @Query("select p from PaymentEntity p join fetch p.booking where p.providerReference = :providerReference")
-    Optional<PaymentEntity> findByProviderReferenceWithBooking(@Param("providerReference") String providerReference);
+    // Discover only the ID: loading the payment before acquiring the booking lock
+    // could leave stale PENDING state in Hibernate's first-level cache after waiting.
+    @Query("select p.booking.id from PaymentEntity p where p.providerReference = :providerReference")
+    Optional<Integer> findBookingIdByProviderReference(@Param("providerReference") String providerReference);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from PaymentEntity p where p.id = (select max(p2.id) from PaymentEntity p2 where p2.booking.id = :bookingId)")

@@ -18,6 +18,8 @@ import com.example.bookinghotel.data.remote.dto.VnPayStatusResponseDto
 import com.example.bookinghotel.data.repository.RetrofitRoomRepository
 import com.example.bookinghotel.data.repository.RoomDataSource
 import java.io.IOException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
@@ -32,7 +34,7 @@ class RetrofitRoomRepositoryTest {
     fun refreshRooms_networkSuccess_mapsAndCachesResponse() = runTest {
         val api = FakeHotelApiService()
         val cacheDao = FakeRoomCacheDao()
-        val repository = RetrofitRoomRepository(api, FakeBookingDao(), cacheDao)
+        val repository = RetrofitRoomRepository(api, FakeBookingDao(), cacheDao, FakeSessionStore())
 
         val result = repository.refreshRooms()
 
@@ -63,7 +65,7 @@ class RetrofitRoomRepositoryTest {
                 )
             )
         )
-        val repository = RetrofitRoomRepository(api, FakeBookingDao(), cacheDao)
+        val repository = RetrofitRoomRepository(api, FakeBookingDao(), cacheDao, FakeSessionStore())
 
         val result = repository.refreshRooms()
 
@@ -80,7 +82,7 @@ class RetrofitRoomRepositoryTest {
         val api = FakeHotelApiService().apply {
             roomsFailure = IOException("offline")
         }
-        val repository = RetrofitRoomRepository(api, FakeBookingDao(), FakeRoomCacheDao())
+        val repository = RetrofitRoomRepository(api, FakeBookingDao(), FakeRoomCacheDao(), FakeSessionStore())
 
         val result = repository.refreshRooms()
 
@@ -107,7 +109,7 @@ class RetrofitRoomRepositoryTest {
                 )
             )
         )
-        val repository = RetrofitRoomRepository(api, FakeBookingDao(), cacheDao)
+        val repository = RetrofitRoomRepository(api, FakeBookingDao(), cacheDao, FakeSessionStore())
         repository.refreshRooms() // publishes cache and hides the remote failure for foreground UX
 
         val result = repository.syncRoomsFromNetwork()
@@ -122,7 +124,7 @@ class RetrofitRoomRepositoryTest {
         val api = FakeHotelApiService()
         val dao = FakeBookingDao(nextInsertedId = 42L)
         val cacheDao = FakeRoomCacheDao()
-        val repository = RetrofitRoomRepository(api, dao, cacheDao)
+        val repository = RetrofitRoomRepository(api, dao, cacheDao, FakeSessionStore())
         repository.refreshRooms()
 
         api.bookingResponse = BookingResponseDto(
@@ -148,7 +150,7 @@ class RetrofitRoomRepositoryTest {
     @Test
     fun bookRoom_nonPositiveQuantity_failsBeforeCallingApi() = runTest {
         val api = FakeHotelApiService()
-        val repository = RetrofitRoomRepository(api, FakeBookingDao(), FakeRoomCacheDao())
+        val repository = RetrofitRoomRepository(api, FakeBookingDao(), FakeRoomCacheDao(), FakeSessionStore())
 
         val result = repository.bookRoom(roomId = 1, quantity = 0)
 
@@ -168,7 +170,7 @@ class RetrofitRoomRepositoryTest {
             )
         }
         val dao = FakeBookingDao()
-        val repository = RetrofitRoomRepository(api, dao, FakeRoomCacheDao())
+        val repository = RetrofitRoomRepository(api, dao, FakeRoomCacheDao(), FakeSessionStore())
         val booking = Booking(
             localId = 99L,
             bookingId = 7,
@@ -200,7 +202,7 @@ class RetrofitRoomRepositoryTest {
     fun createVnPayPayment_updatesLocalBookingToProcessing() = runTest {
         val api = FakeHotelApiService()
         val dao = FakeBookingDao()
-        val repository = RetrofitRoomRepository(api, dao, FakeRoomCacheDao())
+        val repository = RetrofitRoomRepository(api, dao, FakeRoomCacheDao(), FakeSessionStore())
         val booking = Booking(
             localId = 77L,
             bookingId = 9,
@@ -221,6 +223,80 @@ class RetrofitRoomRepositoryTest {
         assertEquals("PROCESSING", dao.lastUpdatedStatus)
     }
 
+    @Test
+    fun historyResponseFromPreviousSession_isDiscardedAfterAnotherUserLogsIn() = runTest {
+        val started = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val release = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val api = FakeHotelApiService().apply {
+            historyResponse = listOf(bookingResponse)
+            beforeHistoryResponse = { started.complete(Unit); release.await() }
+        }
+        val dao = FakeBookingDao()
+        val store = FakeSessionStore().apply { onClear = dao::clearBookings }
+        val repository = RetrofitRoomRepository(api, dao, FakeRoomCacheDao(), store)
+        val sync = async { repository.refreshBookingHistory() }
+        started.await()
+        store.clear()
+        store.save(testSession(2))
+        release.complete(Unit)
+        assertTrue(sync.await().isFailure)
+        assertTrue(repository.bookingHistory.first().isEmpty())
+        assertEquals(null, dao.lastInserted)
+    }
+
+    @Test
+    fun sameAccountRelogin_alsoDiscardsPreviousSessionResponse() = runTest {
+        val store = FakeSessionStore()
+        val api = FakeHotelApiService().apply {
+            historyResponse = listOf(bookingResponse)
+            beforeHistoryResponse = { store.save(testSession(1)) }
+        }
+        val dao = FakeBookingDao()
+        val repository = RetrofitRoomRepository(api, dao, FakeRoomCacheDao(), store)
+        assertTrue(repository.refreshBookingHistory().isFailure)
+        assertEquals(null, dao.lastInserted)
+    }
+
+    @Test
+    fun paymentFailureAndRetryAndVnpayPolling_refreshInventoryAutomatically() = runTest {
+        val api = FakeHotelApiService()
+        val cache = FakeRoomCacheDao()
+        val repository = RetrofitRoomRepository(api, FakeBookingDao(), cache, FakeSessionStore())
+        repository.refreshRooms()
+        val booking = repository.bookRoom(1, 1).getOrThrow()
+        assertEquals(9, repository.rooms.value.first().availableRooms)
+        api.paymentResponse = api.paymentResponse.copy(status = "FAILED")
+        repository.payBooking(booking, PaymentMethod.CARD, true).getOrThrow()
+        assertEquals(10, repository.rooms.value.first().availableRooms)
+        api.roomsResponse = api.roomsResponse.map { it.copy(availableRooms = 9) }
+        repository.createVnPayPayment(booking, "retry").getOrThrow()
+        assertEquals(9, repository.rooms.value.first().availableRooms)
+        api.roomsResponse = api.roomsResponse.map { it.copy(availableRooms = 10) }
+        api.vnpayStatus = "FAILED"
+        repository.getVnPayPaymentStatus(booking).getOrThrow()
+        assertEquals(10, repository.rooms.value.first().availableRooms)
+        assertEquals(10, cache.cachedRooms.first().availableRooms)
+    }
+
+    @Test
+    fun concurrentCatalogRefresh_cannotOverwriteLaterBookingResponse() = runTest {
+        val started = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val release = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val api = FakeHotelApiService()
+        val cache = FakeRoomCacheDao()
+        val repository = RetrofitRoomRepository(api, FakeBookingDao(), cache, FakeSessionStore())
+        repository.refreshRooms()
+        api.beforeRoomsResponse = { started.complete(Unit); release.await() }
+        val refresh = async { repository.syncRoomsFromNetwork() }
+        started.await()
+        val booking = async { repository.bookRoom(1, 1) }
+        release.complete(Unit)
+        assertTrue(refresh.await().isSuccess)
+        booking.await().getOrThrow()
+        assertEquals(9, repository.rooms.value.first().availableRooms)
+        assertEquals(9, cache.cachedRooms.first().availableRooms)
+    }
+
     private class FakeHotelApiService : HotelApiService {
         var roomsResponse: List<RoomDto> = listOf(
             RoomDto(
@@ -232,6 +308,10 @@ class RetrofitRoomRepositoryTest {
                 availableRooms = 10
             )
         )
+        var beforeHistoryResponse: suspend () -> Unit = {}
+        var beforeRoomsResponse: suspend () -> Unit = {}
+        var historyResponse: List<BookingResponseDto> = emptyList()
+        var vnpayStatus: String = "SUCCESS"
         var roomsFailure: Throwable? = null
 
         var bookingResponse: BookingResponseDto = BookingResponseDto(
@@ -257,10 +337,11 @@ class RetrofitRoomRepositoryTest {
 
         override suspend fun getRooms(): List<RoomDto> {
             roomsFailure?.let { throw it }
+            beforeRoomsResponse()
             return roomsResponse
         }
 
-        override suspend fun getBookings(): List<BookingResponseDto> = emptyList()
+        override suspend fun getBookings(): List<BookingResponseDto> { beforeHistoryResponse(); return historyResponse }
 
         override suspend fun createBooking(request: BookingRequestDto): BookingResponseDto {
             createBookingCalls++
@@ -293,7 +374,7 @@ class RetrofitRoomRepositoryTest {
             bookingId: Int
         ): VnPayStatusResponseDto = VnPayStatusResponseDto(
             bookingId = bookingId,
-            status = "SUCCESS",
+            status = vnpayStatus,
             method = "VNPAY",
             transactionId = "VNP123",
             txnRef = "BH${bookingId}123",
@@ -311,6 +392,8 @@ class RetrofitRoomRepositoryTest {
         var lastInserted: BookingEntity? = null
         var lastUpdatedLocalId: Long? = null
         var lastUpdatedStatus: String? = null
+
+        override suspend fun getBookingsForSession(ownerSessionId: String) = bookings.value.filter { it.ownerSessionId == ownerSessionId }
 
         override fun observeBookings(): Flow<List<BookingEntity>> = bookings
 

@@ -38,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.bookinghotel.R
+import com.example.bookinghotel.BuildConfig
 import com.example.bookinghotel.data.PaymentMethod
 import com.example.bookinghotel.data.VnPayPaymentSession
 import com.example.bookinghotel.ui.BookingViewModel
@@ -56,7 +57,7 @@ fun PaymentScreen(
     val context = LocalContext.current
     val booking by viewModel.lastBooking.collectAsState()
     val paymentState by viewModel.paymentState.collectAsState()
-    var selectedMethod by remember { mutableStateOf(PaymentMethod.CARD) }
+    var selectedMethod by remember { mutableStateOf(if (BuildConfig.DEMO_PAYMENTS_ENABLED) PaymentMethod.CARD else PaymentMethod.VNPAY) }
     var simulateFailure by remember { mutableStateOf(false) }
     var showConfirmDialog by remember { mutableStateOf(false) }
 
@@ -68,10 +69,10 @@ fun PaymentScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text("Không tìm thấy booking để thanh toán.")
+            Text(stringResource(R.string.khong_tim_thay_booking_e_thanh_toan))
             Spacer(modifier = Modifier.height(16.dp))
             Button(onClick = { navController.popBackStack(Screen.List.route, false) }) {
-                Text("Về màn hình chính")
+                Text(stringResource(R.string.ve_man_hinh_chinh))
             }
         }
         return
@@ -91,16 +92,16 @@ fun PaymentScreen(
     if (showConfirmDialog) {
         AlertDialog(
             onDismissRequest = { if (!isProcessing) showConfirmDialog = false },
-            title = { Text("Xác nhận thanh toán") },
+            title = { Text(stringResource(R.string.xac_nhan_thanh_toan)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Booking #${currentBooking.bookingId}")
-                    Text("Phương thức: ${paymentMethodLabel(selectedMethod)}")
-                    Text("Giá trị booking: ${currentBooking.totalPrice.toCurrencyLabel()}", fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.booking, currentBooking.bookingId))
+                    Text(stringResource(R.string.phuong_thuc, paymentMethodLabel(selectedMethod)))
+                    Text(stringResource(R.string.gia_tri_booking, currentBooking.totalPrice.toCurrencyLabel()), fontWeight = FontWeight.Bold)
                     if (selectedMethod == PaymentMethod.VNPAY) {
-                        Text("VNPAY Sandbox sẽ mở trên trình duyệt. Backend ký request HMAC-SHA512 và xác nhận kết quả qua IPN.")
+                        Text(stringResource(R.string.vnpay_se_mo_tren_trinh_duyet_quay_lai_ung_dung_e_kiem_t))
                     } else {
-                        Text("Mỗi lần bấm thanh toán được bảo vệ bằng idempotency key để tránh ghi nhận trùng giao dịch.")
+                        Text(stringResource(R.string.kiem_tra_thong_tin_thanh_toan_truoc_khi_xac_nhan))
                     }
                 }
             },
@@ -120,7 +121,7 @@ fun PaymentScreen(
                     enabled = !isProcessing,
                     modifier = Modifier.testTag("confirm_payment_button")
                 ) {
-                    Text(if (selectedMethod == PaymentMethod.VNPAY) "Mở VNPAY" else "Thanh toán")
+                    Text(if (selectedMethod == PaymentMethod.VNPAY) stringResource(R.string.mo_vnpay) else stringResource(R.string.pay_now))
                 }
             },
             dismissButton = {
@@ -128,7 +129,7 @@ fun PaymentScreen(
                     onClick = { showConfirmDialog = false },
                     enabled = !isProcessing
                 ) {
-                    Text("Hủy")
+                    Text(stringResource(R.string.huy))
                 }
             }
         )
@@ -146,32 +147,34 @@ fun PaymentScreen(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Text("Booking #${currentBooking.bookingId}", fontWeight = FontWeight.Bold)
-                Text("Số tiền booking")
+                Text(stringResource(R.string.booking, currentBooking.bookingId), fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.so_tien_booking))
                 Text(
                     currentBooking.totalPrice.toCurrencyLabel(),
                     style = MaterialTheme.typography.headlineSmall,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
                 )
-                Text("Trạng thái: ${currentBooking.status.toBookingStatusLabel()}")
+                Text(stringResource(R.string.trang_thai_a9ff17, currentBooking.status.toBookingStatusLabel()))
             }
         }
 
-        Text("Phương thức thanh toán", fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.phuong_thuc_thanh_toan_c216d3), fontWeight = FontWeight.Bold)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(
-                selected = selectedMethod == PaymentMethod.CARD,
-                onClick = { if (!isProcessing) selectedMethod = PaymentMethod.CARD },
-                label = { Text("Thẻ demo") },
-                enabled = !isProcessing
-            )
-            FilterChip(
-                selected = selectedMethod == PaymentMethod.QR,
-                onClick = { if (!isProcessing) selectedMethod = PaymentMethod.QR },
-                label = { Text("QR demo") },
-                enabled = !isProcessing
-            )
+            if (BuildConfig.DEMO_PAYMENTS_ENABLED) {
+                FilterChip(
+                    selected = selectedMethod == PaymentMethod.CARD,
+                    onClick = { if (!isProcessing) selectedMethod = PaymentMethod.CARD },
+                    label = { Text(stringResource(R.string.the_demo)) },
+                    enabled = !isProcessing
+                )
+                FilterChip(
+                    selected = selectedMethod == PaymentMethod.QR,
+                    onClick = { if (!isProcessing) selectedMethod = PaymentMethod.QR },
+                    label = { Text(stringResource(R.string.qr_demo)) },
+                    enabled = !isProcessing
+                )
+            }
             FilterChip(
                 selected = selectedMethod == PaymentMethod.VNPAY,
                 onClick = {
@@ -180,7 +183,7 @@ fun PaymentScreen(
                         simulateFailure = false
                     }
                 },
-                label = { Text("VNPAY") },
+                label = { Text(stringResource(R.string.vnpay)) },
                 enabled = !isProcessing
             )
         }
@@ -193,9 +196,9 @@ fun PaymentScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Chế độ demo lỗi thanh toán", fontWeight = FontWeight.Medium)
+                        Text(stringResource(R.string.che_o_demo_loi_thanh_toan), fontWeight = FontWeight.Medium)
                         Text(
-                            text = "Bật để kiểm thử FAILED → Retry cho payment mô phỏng.",
+                            text = stringResource(R.string.bat_e_kiem_thu_failed_retry_cho_payment_mo_phong),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -214,9 +217,9 @@ fun PaymentScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text("VNPAY Sandbox thật", fontWeight = FontWeight.Bold)
-                    Text("Không trừ tiền thật. BookingHotel và VNPAY hiện dùng cùng một số tiền VND, không còn bước quy đổi trung gian.")
-                    Text("Kết quả SUCCESS chỉ được ghi nhận sau khi backend nhận IPN hợp lệ từ VNPAY.")
+                    Text(stringResource(R.string.vnpay), fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.so_tien_thanh_toan_uoc_hien_thi_bang_vnd_kiem_tra_thong))
+                    Text(stringResource(R.string.ket_qua_success_chi_uoc_ghi_nhan_sau_khi_backend_nhan_i))
                 }
             }
         }
@@ -231,9 +234,9 @@ fun PaymentScreen(
                 ) {
                     Text(
                         if (selectedMethod == PaymentMethod.VNPAY) {
-                            "Thanh toán bằng VNPAY Sandbox"
+                            stringResource(R.string.thanh_toan_bang_vnpay)
                         } else {
-                            "Thanh toán ${currentBooking.totalPrice.toCurrencyLabel()}"
+                            stringResource(R.string.thanh_toan, currentBooking.totalPrice.toCurrencyLabel())
                         }
                     )
                 }
@@ -250,8 +253,8 @@ fun PaymentScreen(
                     ) {
                         CircularProgressIndicator()
                         Column {
-                            Text("Đang xử lý giao dịch", fontWeight = FontWeight.Bold)
-                            Text("Vui lòng không bấm thanh toán nhiều lần.")
+                            Text(stringResource(R.string.ang_xu_ly_giao_dich), fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.vui_long_khong_bam_thanh_toan_nhieu_lan))
                         }
                     }
                 }
@@ -263,7 +266,7 @@ fun PaymentScreen(
                 }
                 VnPayWaitingCard(
                     session = state.session,
-                    message = "Trang VNPAY Sandbox đã được mở. Sau khi hoàn tất, quay lại ứng dụng và kiểm tra kết quả.",
+                    message = stringResource(R.string.trang_vnpay_sandbox_a_uoc_mo_sau_khi_hoan_tat_quay_lai),
                     onCheck = viewModel::checkVnPayPaymentStatus,
                     onReopen = { openExternalPayment(context, state.session.paymentUrl) }
                 )
@@ -293,13 +296,13 @@ fun PaymentScreen(
                         .fillMaxWidth()
                         .testTag("payment_history_button")
                 ) {
-                    Text("Xem lịch sử đặt phòng")
+                    Text(stringResource(R.string.xem_lich_su_at_phong))
                 }
                 OutlinedButton(
                     onClick = { navController.popBackStack(Screen.List.route, false) },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Về màn hình chính")
+                    Text(stringResource(R.string.ve_man_hinh_chinh))
                 }
             }
 
@@ -310,12 +313,13 @@ fun PaymentScreen(
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
-                            text = "Thanh toán thất bại",
+                            text = stringResource(R.string.thanh_toan_that_bai),
+                            modifier = Modifier.testTag("payment_failed_message"),
                             color = MaterialTheme.colorScheme.error,
                             fontWeight = FontWeight.Bold
                         )
                         Text(state.result.message)
-                        Text("Bạn có thể tạo một payment attempt mới và thử lại.")
+                        Text(stringResource(R.string.ban_co_the_tao_mot_payment_attempt_moi_va_thu_lai))
                     }
                 }
                 Button(
@@ -327,9 +331,9 @@ fun PaymentScreen(
                             showConfirmDialog = true
                         }
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().testTag("payment_retry_button")
                 ) {
-                    Text("Thử thanh toán lại")
+                    Text(stringResource(R.string.retry_payment))
                 }
             }
 
@@ -340,16 +344,17 @@ fun PaymentScreen(
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
-                            text = "Không thể xác nhận kết quả giao dịch",
+                            text = stringResource(R.string.khong_the_xac_nhan_ket_qua_giao_dich),
+                            modifier = Modifier.testTag("payment_error_message"),
                             color = MaterialTheme.colorScheme.error,
                             fontWeight = FontWeight.Bold
                         )
                         Text(state.message)
                         Text(
                             if (selectedMethod == PaymentMethod.VNPAY) {
-                                "Backend sẽ tái sử dụng giao dịch VNPAY còn hiệu lực; attempt đã hết hạn mới được thay thế."
+                                stringResource(R.string.backend_se_tai_su_dung_giao_dich_vnpay_con_hieu_luc_att)
                             } else {
-                                "Retry giữ nguyên idempotency key để backend không tạo giao dịch trùng."
+                                stringResource(R.string.retry_giu_nguyen_idempotency_key_e_backend_khong_tao_gi)
                             }
                         )
                     }
@@ -367,7 +372,7 @@ fun PaymentScreen(
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Thử lại an toàn")
+                    Text(stringResource(R.string.thu_lai_an_toan))
                 }
             }
         }
@@ -386,11 +391,11 @@ private fun VnPayWaitingCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(7.dp)
         ) {
-            Text("Đang chờ VNPAY xác nhận", fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.ang_cho_vnpay_xac_nhan), fontWeight = FontWeight.Bold)
             session?.let {
-                Text("Mã tham chiếu: ${it.txnRef}")
-                Text("Số tiền: ${it.amountVnd.toVndLabel()}")
-                Text("Hết hạn: ${it.expiresAt.toDateTimeLabel()}")
+                Text(stringResource(R.string.ma_tham_chieu, it.txnRef))
+                Text(stringResource(R.string.so_tien, it.amountVnd.toVndLabel()))
+                Text(stringResource(R.string.het_han, it.expiresAt.toDateTimeLabel()))
             }
             Text(message)
         }
@@ -434,23 +439,26 @@ private fun PaymentReceipt(
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.titleLarge
             )
-            Text("Phương thức: ${paymentMethodLabel(method)}")
-            Text("Mã giao dịch: ${transactionId ?: "--"}")
-            Text("Thời gian: ${paidAt?.toDateTimeLabel() ?: "--"}")
+            Text(stringResource(R.string.phuong_thuc, paymentMethodLabel(method)))
+            Text(stringResource(R.string.ma_giao_dich, transactionId ?: "--"))
+            Text(stringResource(R.string.thoi_gian_577a83, paidAt?.toDateTimeLabel() ?: "--"))
             Text(message)
         }
     }
 }
 
+@Composable
 private fun paymentMethodLabel(method: PaymentMethod): String = when (method) {
-    PaymentMethod.CARD -> "Thẻ demo"
-    PaymentMethod.QR -> "QR demo"
-    PaymentMethod.VNPAY -> "VNPAY Sandbox"
+    PaymentMethod.CARD -> stringResource(R.string.the_demo)
+    PaymentMethod.QR -> stringResource(R.string.qr_demo)
+    PaymentMethod.VNPAY -> stringResource(R.string.vnpay)
 }
 
 private fun openExternalPayment(context: android.content.Context, url: String) {
     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
-    context.startActivity(intent)
+    runCatching { context.startActivity(intent) }.onFailure {
+        android.widget.Toast.makeText(context, context.getString(R.string.browser_unavailable), android.widget.Toast.LENGTH_LONG).show()
+    }
 }

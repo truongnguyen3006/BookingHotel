@@ -20,6 +20,38 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class PaymentServiceLifecycleTest {
+    @Test
+    void demoPaymentsDisabledByDefault() {
+        PaymentService service = new PaymentService(mock(BookingJpaRepository.class), mock(PaymentJpaRepository.class),
+                mock(CurrentUserService.class), mock(BookingLifecycleService.class));
+        org.junit.jupiter.api.Assertions.assertThrows(com.example.bookinghotel.backend.exception.BadRequestException.class,
+                () -> service.pay(42, new PaymentRequest("CARD", false, "disabled")));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"CARD", "QR"})
+    void demoPaymentCannotOverlapPendingProvider(String method) {
+        var bookings = mock(BookingJpaRepository.class);
+        var payments = mock(PaymentJpaRepository.class);
+        var users = mock(CurrentUserService.class);
+        var lifecycle = mock(BookingLifecycleService.class);
+        var user = mock(UserEntity.class);
+        var booking = mock(BookingEntity.class);
+        var active = mock(PaymentEntity.class);
+        when(user.getId()).thenReturn(9L);
+        when(users.requireUser()).thenReturn(user);
+        when(booking.getStatus()).thenReturn(BookingStatus.PROCESSING);
+        when(bookings.findOwnedByIdForUpdate(42, 9L)).thenReturn(Optional.of(booking));
+        when(payments.findLatestByBookingIdForUpdate(42)).thenReturn(Optional.of(active));
+        when(active.getStatus()).thenReturn(PaymentStatus.PENDING);
+        PaymentService service = new PaymentService(bookings, payments, users, lifecycle);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "demoPaymentsEnabled", true);
+        org.junit.jupiter.api.Assertions.assertThrows(com.example.bookinghotel.backend.exception.ConflictException.class,
+                () -> service.pay(42, new PaymentRequest(method, false, "retry")));
+        org.mockito.Mockito.verifyNoInteractions(lifecycle);
+        org.mockito.Mockito.verify(payments, org.mockito.Mockito.never()).save(any());
+    }
+
 
     @Test
     void simulatedFailure_releasesInventoryAndPersistsFailedPayment() {
@@ -45,6 +77,7 @@ class PaymentServiceLifecycleTest {
                 lifecycle
         );
 
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "demoPaymentsEnabled", true);
         var response = service.pay(42, new PaymentRequest("CARD", true, "card-fail-1"));
 
         verify(lifecycle).ensureInventoryReservedForRetry(booking, null);
@@ -81,6 +114,7 @@ class PaymentServiceLifecycleTest {
                 lifecycle
         );
 
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "demoPaymentsEnabled", true);
         var response = service.pay(43, new PaymentRequest("QR", false, "qr-ok-1"));
 
         verify(lifecycle).ensureInventoryReservedForRetry(booking, null);
