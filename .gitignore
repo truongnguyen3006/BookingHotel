@@ -24,3 +24,6 @@ keystore.properties
 
 # IDE / local generated config
 *.log
+
+# Generated signed release artifacts
+app/release/
