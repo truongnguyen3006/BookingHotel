@@ -5,7 +5,7 @@
 
 Ứng dụng đặt phòng khách sạn full-stack gồm **Android native** và **Spring Boot backend**, được xây dựng theo hướng production-ready cho mục đích portfolio.
 
-Dự án tập trung vào các bài toán thực tế như xác thực JWT, đặt phòng và quản lý tồn kho, thanh toán VNPAY, chống race condition, đồng bộ dữ liệu offline-first và triển khai backend thực tế.
+Dự án tập trung vào các bài toán thực tế như xác thực JWT, đặt phòng và quản lý tồn kho, thanh toán VNPAY, xử lý race condition, đồng bộ dữ liệu offline-first và triển khai backend thực tế.
 
 ## Tải APK
 
@@ -15,18 +15,17 @@ Dự án tập trung vào các bài toán thực tế như xác thực JWT, đ�
 
 ## Giao diện ứng dụng
 
-> **Cần chèn 4 ảnh chính tại đây trước khi hoàn thiện README.**
+> **Cần chèn 5 ảnh trước khi hoàn thiện README.**
 >
 > Tạo thư mục `docs/screenshots/` và thêm:
 >
-> - `room-list.png` — màn hình **danh sách phòng**, nên thấy rõ giá VND và các card phòng
-> - `booking.png` — màn hình **xác nhận đặt phòng**, nên thấy ngày nhận/trả, số khách, số phòng và tổng tiền
-> - `vnpay.png` — màn hình **thanh toán VNPAY hoặc thanh toán thành công**, không để lộ dữ liệu cá nhân
-> - `history.png` — màn hình **lịch sử booking**, nên thấy rõ trạng thái booking/payment
+> - `room-list.png` — danh sách phòng, nên thấy rõ card phòng, giá VND và số phòng còn lại
+> - `booking.png` — xác nhận đặt phòng, nên thấy ngày nhận/trả, số khách, số phòng và tổng tiền
+> - `vnpay.png` — thanh toán VNPAY hoặc màn hình thanh toán thành công, không để lộ dữ liệu cá nhân
+> - `history.png` — lịch sử booking, nên thấy rõ trạng thái booking/payment
+> - `admin.png` — màn hình quản trị, ưu tiên ảnh thể hiện rõ việc quản lý phòng, booking hoặc payment
 >
-> Ảnh nên chụp cùng một thiết bị/emulator, cùng kích thước và theo chiều dọc. Khi đã thêm ảnh, thay các ô ghi chú bên dưới bằng Markdown image tương ứng.
->
-> **Tùy chọn:** nếu màn hình Admin đẹp và có dữ liệu demo rõ ràng, có thể thêm `admin.png` sau 4 ảnh chính.
+> Ảnh Android nên chụp cùng một thiết bị/emulator, cùng kích thước và theo chiều dọc.
 
 | Danh sách phòng | Xác nhận đặt phòng |
 |---|---|
@@ -36,8 +35,12 @@ Dự án tập trung vào các bài toán thực tế như xác thực JWT, đ�
 |---|---|
 | _Chèn `docs/screenshots/vnpay.png`_ | _Chèn `docs/screenshots/history.png`_ |
 
+### Quản trị
+
+_Chèn `docs/screenshots/admin.png`_
+
 <!--
-Sau khi đã thêm ảnh vào docs/screenshots/, thay hai bảng placeholder phía trên bằng:
+Sau khi đã thêm ảnh vào docs/screenshots/, thay các placeholder phía trên bằng:
 
 | Danh sách phòng | Xác nhận đặt phòng |
 |---|---|
@@ -47,13 +50,16 @@ Sau khi đã thêm ảnh vào docs/screenshots/, thay hai bảng placeholder ph�
 |---|---|
 | <img src="docs/screenshots/vnpay.png" width="280"/> | <img src="docs/screenshots/history.png" width="280"/> |
 
-Nếu muốn thêm Admin:
+### Quản trị
+
 <p align="center">
   <img src="docs/screenshots/admin.png" width="280"/>
 </p>
 -->
 
 ## Tính năng chính
+
+### Người dùng
 
 - Đăng ký, đăng nhập và đăng xuất
 - JWT access token và rotating refresh token
@@ -63,14 +69,21 @@ Nếu muốn thêm Admin:
 - Chọn ngày nhận/trả phòng, số khách và số lượng phòng
 - Tạo booking và giữ tồn kho
 - Xem lịch sử booking
-- Theo dõi trạng thái thanh toán
+- Theo dõi trạng thái booking và payment
 - Thanh toán bằng VNPAY Sandbox
 - Deep link quay lại ứng dụng sau thanh toán
 - Tự động hoàn trả tồn kho khi thanh toán thất bại hoặc booking hết hạn
 - Offline-first cache bằng Room
 - Đồng bộ nền bằng WorkManager
 - Cô lập dữ liệu theo session người dùng
-- Admin quản lý phòng, booking và payment
+
+### Quản trị
+
+- Quản lý thông tin phòng và số lượng phòng khả dụng
+- Theo dõi danh sách booking
+- Theo dõi trạng thái booking và payment
+- Theo dõi thông tin thanh toán phục vụ quản lý hệ thống
+- Dữ liệu quản trị sử dụng cùng backend và cơ sở dữ liệu với ứng dụng người dùng
 
 ## Công nghệ sử dụng
 
@@ -100,20 +113,35 @@ Nếu muốn thêm Admin:
 ## Kiến trúc hệ thống
 
 ```mermaid
-flowchart LR
-    A[Ứng dụng Android] -->|HTTPS / Retrofit| B[Spring Boot REST API]
-    A --> C[Room Database]
-    A --> D[DataStore]
-    A --> E[WorkManager]
+flowchart TB
+    A["Ứng dụng Android"]
 
-    B --> F[Spring Security + JWT]
-    B --> G[JPA / Hibernate]
-    G --> H[(MySQL)]
-    B --> I[Flyway]
-    B --> J[VNPAY Sandbox]
+    C["Room Database"]
+    D["DataStore"]
+    E["WorkManager"]
 
-    J -->|Return / IPN| B
-    B -->|Trạng thái booking / payment| A
+    B["Spring Boot REST API"]
+    F["Spring Security + JWT"]
+    G["JPA / Hibernate"]
+    I["Flyway"]
+
+    H[("MySQL")]
+    J["VNPAY Sandbox"]
+
+    A -->|"HTTPS / Retrofit"| B
+
+    A --> C
+    A --> D
+    A --> E
+
+    B --> F
+    B --> G
+    G --> H
+    B --> I
+    I --> H
+
+    B -->|"Tạo giao dịch"| J
+    J -->|"Return / IPN"| B
 ```
 
 ## Điểm kỹ thuật nổi bật
