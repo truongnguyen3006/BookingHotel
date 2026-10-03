@@ -13,6 +13,46 @@ Dự án tập trung vào các bài toán thực tế như xác thực JWT, đ�
 
 > Ứng dụng sử dụng **VNPAY Sandbox** để demo thanh toán. Không có giao dịch tiền thật.
 
+## Giao diện ứng dụng
+
+> **Cần chèn 4 ảnh chính tại đây trước khi hoàn thiện README.**
+>
+> Tạo thư mục `docs/screenshots/` và thêm:
+>
+> - `room-list.png` — màn hình **danh sách phòng**, nên thấy rõ giá VND và các card phòng
+> - `booking.png` — màn hình **xác nhận đặt phòng**, nên thấy ngày nhận/trả, số khách, số phòng và tổng tiền
+> - `vnpay.png` — màn hình **thanh toán VNPAY hoặc thanh toán thành công**, không để lộ dữ liệu cá nhân
+> - `history.png` — màn hình **lịch sử booking**, nên thấy rõ trạng thái booking/payment
+>
+> Ảnh nên chụp cùng một thiết bị/emulator, cùng kích thước và theo chiều dọc. Khi đã thêm ảnh, thay các ô ghi chú bên dưới bằng Markdown image tương ứng.
+>
+> **Tùy chọn:** nếu màn hình Admin đẹp và có dữ liệu demo rõ ràng, có thể thêm `admin.png` sau 4 ảnh chính.
+
+| Danh sách phòng | Xác nhận đặt phòng |
+|---|---|
+| _Chèn `docs/screenshots/room-list.png`_ | _Chèn `docs/screenshots/booking.png`_ |
+
+| Thanh toán VNPAY | Lịch sử booking |
+|---|---|
+| _Chèn `docs/screenshots/vnpay.png`_ | _Chèn `docs/screenshots/history.png`_ |
+
+<!--
+Sau khi đã thêm ảnh vào docs/screenshots/, thay hai bảng placeholder phía trên bằng:
+
+| Danh sách phòng | Xác nhận đặt phòng |
+|---|---|
+| <img src="docs/screenshots/room-list.png" width="280"/> | <img src="docs/screenshots/booking.png" width="280"/> |
+
+| Thanh toán VNPAY | Lịch sử booking |
+|---|---|
+| <img src="docs/screenshots/vnpay.png" width="280"/> | <img src="docs/screenshots/history.png" width="280"/> |
+
+Nếu muốn thêm Admin:
+<p align="center">
+  <img src="docs/screenshots/admin.png" width="280"/>
+</p>
+-->
+
 ## Tính năng chính
 
 - Đăng ký, đăng nhập và đăng xuất
