@@ -3,39 +3,44 @@
 [![Android CI](https://github.com/truongnguyen3006/BookingHotel/actions/workflows/android-ci.yml/badge.svg)](https://github.com/truongnguyen3006/BookingHotel/actions/workflows/android-ci.yml)
 [![Backend CI/CD](https://github.com/truongnguyen3006/BookingHotel/actions/workflows/backend-ci-cd.yml/badge.svg)](https://github.com/truongnguyen3006/BookingHotel/actions/workflows/backend-ci-cd.yml)
 
-A full-stack hotel booking application built as a production-oriented Android portfolio project.
+Ứng dụng đặt phòng khách sạn full-stack được xây dựng theo hướng production-ready, gồm ứng dụng Android native và backend Spring Boot.
 
-The project combines a native Android client with a Spring Boot REST API, MySQL persistence, JWT authentication, offline-first caching, inventory reservation, concurrency protection, and VNPAY Sandbox payment integration.
+Dự án tập trung vào các vấn đề thực tế như xác thực JWT, đặt phòng và quản lý tồn kho, xử lý thanh toán, chống race condition, đồng bộ dữ liệu offline-first, migration cơ sở dữ liệu và quy trình build/release.
 
-## Download
+## Tải ứng dụng
 
-The signed Android APK is published through GitHub Releases:
+APK Android đã ký được phát hành tại GitHub Releases:
 
-**[Download the latest BookingHotel release](https://github.com/truongnguyen3006/BookingHotel/releases/latest)**
+**[Tải phiên bản BookingHotel mới nhất](https://github.com/truongnguyen3006/BookingHotel/releases/latest)**
 
-> VNPAY runs in **Sandbox mode** for demonstration. No real payment is processed.
+> VNPAY hiện chạy ở **Sandbox** để phục vụ mục đích demo và kiểm thử. Không có giao dịch tiền thật.
 
-## Highlights
+## Tính năng chính
 
-- User registration, login and logout
-- JWT access tokens with rotating refresh tokens
-- Automatic single-flight token refresh for concurrent requests
-- Hotel room browsing, search, filters and sorting
-- Room details, check-in/check-out dates, guests and quantity validation
-- Booking creation with inventory reservation
-- Booking history and payment lifecycle tracking
-- VNPAY Sandbox payment flow with return/deep-link handling
-- Payment idempotency and duplicate-active-payment protection
-- Inventory restoration after failed or expired payments
-- Scheduled expiration of abandoned reservations
-- Offline-first Room cache and WorkManager synchronization
-- Per-session cache isolation across logout/user switching
-- Admin dashboard for rooms, bookings and payments
-- Flyway database migrations
-- Android and backend CI pipelines
-- Production backend deployed on Railway
+- Đăng ký, đăng nhập và đăng xuất tài khoản
+- JWT access token và rotating refresh token
+- Tự động refresh token theo cơ chế single-flight khi nhiều request gặp `401`
+- Xem danh sách phòng, tìm kiếm, lọc và sắp xếp
+- Xem chi tiết phòng
+- Chọn ngày nhận/trả phòng, số khách và số lượng phòng
+- Tạo booking và giữ tồn kho
+- Xem lịch sử booking
+- Theo dõi trạng thái booking và payment
+- Tích hợp VNPAY Sandbox
+- Deep link khi quay lại ứng dụng sau thanh toán
+- Idempotency cho payment
+- Ngăn nhiều payment `PENDING` hoạt động đồng thời trên cùng booking
+- Tự động hoàn trả tồn kho khi payment thất bại hoặc booking hết hạn
+- Scheduler xử lý booking bỏ dở
+- Room Database theo hướng offline-first
+- WorkManager đồng bộ dữ liệu nền
+- Cô lập cache theo session để tránh dữ liệu User A rò sang User B
+- Admin dashboard quản lý phòng, booking và payment
+- Flyway migration cho MySQL
+- CI cho Android và backend
+- Backend production triển khai trên Railway
 
-## Architecture
+## Kiến trúc hệ thống
 
 ```mermaid
 flowchart LR
@@ -51,13 +56,14 @@ flowchart LR
     B --> J[VNPAY Sandbox]
 
     J -->|Return / IPN| B
-    B -->|booking & payment status| A
+    B -->|Booking & Payment Status| A
 ```
 
 ### Android
 
 - Kotlin
-- Jetpack Compose + Material 3
+- Jetpack Compose
+- Material 3
 - Navigation Compose
 - ViewModel + StateFlow
 - Hilt
@@ -71,64 +77,66 @@ flowchart LR
 - Java 17
 - Spring Boot
 - Spring Security
-- JWT authentication
+- JWT Authentication
 - Spring Data JPA / Hibernate
 - MySQL
 - Flyway
 - Testcontainers
 
-## Booking and Payment Safety
+## An toàn Booking và Payment
 
-The booking lifecycle is designed to protect inventory and payment consistency under retries and concurrent requests.
+Luồng booking/payment được thiết kế để đảm bảo tính nhất quán dữ liệu khi có retry hoặc request chạy đồng thời.
 
-- Room inventory is reserved transactionally.
-- Booking and payment operations use pessimistic locking where required.
-- Failed or expired bookings restore inventory exactly once.
-- Payment attempts use idempotency keys.
-- Only one active `PENDING` payment is allowed for a booking.
-- VNPAY IPN processing locks the booking before the payment to keep lock ordering consistent.
-- Late provider callbacks cannot resurrect a booking whose inventory has already been released.
-- Booking prices are stored as native VND snapshots using integer values rather than floating-point money.
+- Tồn kho phòng được reserve trong transaction.
+- Các thao tác booking/payment quan trọng sử dụng pessimistic locking.
+- Booking thất bại hoặc hết hạn chỉ hoàn trả tồn kho đúng một lần.
+- Payment sử dụng idempotency key.
+- Mỗi booking chỉ được có một payment `PENDING` đang hoạt động.
+- VNPAY IPN khóa booking trước, sau đó mới khóa payment để giữ lock ordering nhất quán.
+- Callback đến trễ không thể làm sống lại booking đã bị release tồn kho.
+- Giá booking được lưu dưới dạng snapshot VND bằng kiểu số nguyên, tránh sai số floating-point.
 
-## Authentication and Session Isolation
+## Xác thực và cô lập Session
 
-Authentication uses short-lived JWT access tokens and rotating refresh tokens.
+Hệ thống sử dụng JWT access token ngắn hạn kết hợp rotating refresh token.
 
-The Android client serializes concurrent token refreshes so multiple simultaneous `401` responses do not trigger competing refresh requests. Private cached booking data is associated with the active app session, preventing stale responses from a previous user from being written after logout or account switching.
+Android client serialize các request refresh token chạy đồng thời, tránh trường hợp nhiều request `401` cùng lúc tạo ra race condition hoặc logout sai.
+
+Dữ liệu booking cache được gắn với session hiện tại. Nếu User A logout rồi User B login, các response cũ của User A sẽ không được phép ghi vào cache của User B.
 
 ## VNPAY Sandbox
 
-VNPAY is integrated as an external payment provider for demonstration purposes.
+VNPAY được tích hợp như payment provider bên ngoài cho mục đích demo.
 
-Typical flow:
+Luồng tổng quát:
 
 ```text
-Create booking
+Tạo booking
     ↓
-Create VNPAY payment
+Tạo payment VNPAY
     ↓
-Open VNPAY Sandbox
+Mở VNPAY Sandbox
     ↓
 VNPAY Return / IPN
     ↓
-Backend verifies provider result
+Backend xác thực kết quả
     ↓
 SUCCESS / FAILED
     ↓
-Android refreshes booking and inventory state
+Android cập nhật booking và tồn kho
 ```
 
-The Android client does not trust browser return parameters as the source of truth. Final payment status is resolved against the backend.
+Android client không coi dữ liệu trả về từ browser là nguồn sự thật cuối cùng. Trạng thái payment cuối cùng luôn được xác nhận lại với backend.
 
-## Project Structure
+## Cấu trúc project
 
 ```text
 BookingHotel/
 ├── .github/
-│   └── workflows/          # Android, backend and release CI
-├── app/                    # Native Android application
+│   └── workflows/          # CI Android, backend và release
+├── app/                    # Ứng dụng Android native
 ├── backend/                # Spring Boot REST API
-├── gradle/                 # Gradle wrapper files
+├── gradle/                 # Gradle wrapper
 ├── android-env.example.properties
 ├── keystore.properties.example
 ├── build.gradle.kts
@@ -138,19 +146,18 @@ BookingHotel/
 └── settings.gradle.kts
 ```
 
-## Local Development
+## Chạy project ở local
 
-### Requirements
+### Yêu cầu
 
 - JDK 17
 - Android Studio
 - Android SDK 35
-- Docker Desktop or a local MySQL instance
-- Node.js is **not** required
+- Docker Desktop hoặc MySQL local
 
-### 1. Start the backend
+### 1. Chạy backend
 
-From the repository root:
+Từ thư mục root của project:
 
 ```powershell
 cd backend
@@ -158,19 +165,25 @@ docker compose up -d
 .\gradlew.bat bootRun
 ```
 
-The local Android emulator uses:
+Android Emulator mặc định gọi backend local qua:
 
 ```text
 http://10.0.2.2:8080/
 ```
 
-### 2. Run the Android app
+### 2. Chạy Android app
 
-Open the repository in Android Studio, select the `debug` build variant, choose an emulator/device, and run the app.
+Mở repository bằng Android Studio:
 
-The debug build enables local demo CARD/QR payments. Production release builds disable simulated payments.
+1. Chọn build variant `debug`
+2. Chọn emulator hoặc thiết bị thật
+3. Bấm Run
 
-## Build and Test
+Build `debug` cho phép test CARD/QR demo ở môi trường local.
+
+Build `release` sẽ tắt simulated payment và sử dụng backend production.
+
+## Build và Test
 
 ### Android
 
@@ -181,7 +194,7 @@ The debug build enables local demo CARD/QR payments. Production release builds d
 .\gradlew.bat assembleDebugAndroidTest
 ```
 
-With an emulator/device:
+Nếu có emulator hoặc thiết bị thật:
 
 ```powershell
 .\gradlew.bat connectedDebugAndroidTest
@@ -196,53 +209,74 @@ cd backend
 .\gradlew.bat build
 ```
 
-The integration suite uses MySQL/Testcontainers to exercise payment, booking, security, concurrency and Flyway migration behavior.
+Integration test sử dụng MySQL/Testcontainers để kiểm tra các luồng booking, payment, security, concurrency và Flyway migration.
 
-## Release Build
+## Build Release
 
-Release builds require a real HTTPS production backend URL and signing credentials.
+Release build yêu cầu HTTPS production backend hợp lệ và release signing credentials.
 
-Example local Gradle property:
+Ví dụ cấu hình local:
 
 ```properties
 BOOKING_API_PROD_URL=https://your-production-api.example.com/
 ```
 
-Signing values can be supplied through `keystore.properties` or environment variables. Real keystores and passwords are intentionally excluded from Git.
+Signing có thể cấu hình bằng `keystore.properties` hoặc environment variables.
 
-The `release` build:
+Keystore thật và mật khẩu không được commit lên GitHub.
 
-- disables demo CARD/QR payments
-- enables code/resource shrinking
-- requires a valid HTTPS production backend
-- supports signed APK/AAB generation
+Build `release`:
 
-## Database Migrations
+- tắt CARD/QR demo
+- bật code shrinking
+- bật resource shrinking
+- yêu cầu production backend dùng HTTPS
+- hỗ trợ signed APK/AAB
 
-Flyway manages the MySQL schema. The current release contains migrations through **V6**, covering authentication/booking ownership, VNPAY provider data, reservation lifecycle, native VND money storage and exclusive active payments.
+## Database Migration
 
-Do not edit migrations that have already been applied to a deployed database; add a new migration instead.
+Flyway quản lý schema MySQL.
+
+Phiên bản hiện tại có migration từ **V1 đến V6**, bao gồm:
+
+- schema khởi tạo
+- authentication và booking ownership
+- dữ liệu VNPAY provider
+- booking reservation lifecycle
+- chuyển toàn bộ money sang VND `BIGINT`
+- unique constraint cho active payment
+
+Không chỉnh sửa migration đã được áp dụng trên database production. Nếu cần thay đổi schema, hãy tạo migration mới.
 
 ## CI/CD
 
-GitHub Actions validates the Android and backend codebases.
+GitHub Actions được dùng để kiểm tra Android và backend.
 
-- **Android CI** — unit tests, lint, build and emulator instrumentation tests
-- **Backend CI/CD** — unit tests, MySQL integration tests and build validation
-- **Android Release** — supports signed APK/AAB builds for release tags when repository signing secrets are configured
+- **Android CI**: unit test, lint, build và instrumentation test trên emulator
+- **Backend CI/CD**: unit test, MySQL integration test và build validation
+- **Android Release**: hỗ trợ build signed APK/AAB khi tạo release tag và repository đã cấu hình signing secrets
 
-## Release Status
+## Trạng thái Release
 
-**v1.0.0** is the first stable portfolio release.
+**v1.0.0** là stable release đầu tiên của project.
 
-The final audit reported:
+Kết quả final audit:
 
 - Critical: 0
 - High: 0
 - Production blockers: 0
 
-The release APK has also been manually tested on a physical Android device, including the VNPAY Sandbox end-to-end flow.
+Signed Release APK đã được kiểm thử trực tiếp trên thiết bị Android thật, bao gồm cả luồng VNPAY Sandbox end-to-end.
+
+## Post-v1.0 Backlog
+
+Một số cải tiến UX nhỏ được giữ lại cho các phiên bản sau:
+
+- Khôi phục URL VNPAY khi app bị process death trong lúc payment đang `PROCESSING`
+- Hủy authenticated periodic WorkManager ngay khi logout
+
+Hai mục trên không ảnh hưởng đến tính đúng đắn của booking/payment, security hoặc tính toàn vẹn dữ liệu của v1.0.0.
 
 ---
 
-Built as a full-stack Android + Java backend portfolio project with an emphasis on transactional correctness, concurrency safety, authentication, payment lifecycle handling and deployable release engineering.
+Dự án được xây dựng như một portfolio full-stack Android + Java Backend, tập trung vào transactional correctness, concurrency safety, authentication, payment lifecycle và release engineering.
