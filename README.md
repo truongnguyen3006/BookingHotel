@@ -15,46 +15,40 @@ Dự án tập trung vào các bài toán thực tế như xác thực JWT, đ�
 
 ## Giao diện ứng dụng
 
-> **Cần chèn 5 ảnh trước khi hoàn thiện README.**
->
-> Tạo thư mục `docs/screenshots/` và thêm:
->
-> - `room-list.png` — danh sách phòng, nên thấy rõ card phòng, giá VND và số phòng còn lại
-> - `booking.png` — xác nhận đặt phòng, nên thấy ngày nhận/trả, số khách, số phòng và tổng tiền
-> - `vnpay.png` — thanh toán VNPAY hoặc màn hình thanh toán thành công, không để lộ dữ liệu cá nhân
-> - `history.png` — lịch sử booking, nên thấy rõ trạng thái booking/payment
-> - `admin.png` — màn hình quản trị, ưu tiên ảnh thể hiện rõ việc quản lý phòng, booking hoặc payment
->
-> Ảnh Android nên chụp cùng một thiết bị/emulator, cùng kích thước và theo chiều dọc.
+README sử dụng **9 ảnh** để minh họa đầy đủ luồng người dùng và chức năng quản trị.
 
-| Danh sách phòng | Xác nhận đặt phòng |
-|---|---|
-| _Chèn `docs/screenshots/room-list.png`_ | _Chèn `docs/screenshots/booking.png`_ |
+### Luồng người dùng
 
-| Thanh toán VNPAY | Lịch sử booking |
+| Danh sách phòng | Chi tiết phòng | Xác nhận đặt phòng |
+|---|---|---|
+| <img src="docs/screenshots/room-list.png" width="230"/> | <img src="docs/screenshots/room-detail.png" width="230"/> | <img src="docs/screenshots/booking-confirmation.png" width="230"/> |
+
+| Thanh toán thành công | Lịch sử đặt phòng |
 |---|---|
-| _Chèn `docs/screenshots/vnpay.png`_ | _Chèn `docs/screenshots/history.png`_ |
+| <img src="docs/screenshots/payment-success.png" width="280"/> | <img src="docs/screenshots/booking-history.png" width="280"/> |
 
 ### Quản trị
 
-_Chèn `docs/screenshots/admin.png`_
+| Tổng quan quản trị | Quản lý phòng |
+|---|---|
+| <img src="docs/screenshots/admin-dashboard.png" width="280"/> | <img src="docs/screenshots/admin-room-management.png" width="280"/> |
+
+| Cập nhật phòng | Quản lý booking & payment |
+|---|---|
+| <img src="docs/screenshots/admin-room-edit.png" width="280"/> | <img src="docs/screenshots/admin-booking-payment.png" width="280"/> |
 
 <!--
-Sau khi đã thêm ảnh vào docs/screenshots/, thay các placeholder phía trên bằng:
+Tên file ảnh cần dùng trong docs/screenshots/:
 
-| Danh sách phòng | Xác nhận đặt phòng |
-|---|---|
-| <img src="docs/screenshots/room-list.png" width="280"/> | <img src="docs/screenshots/booking.png" width="280"/> |
-
-| Thanh toán VNPAY | Lịch sử booking |
-|---|---|
-| <img src="docs/screenshots/vnpay.png" width="280"/> | <img src="docs/screenshots/history.png" width="280"/> |
-
-### Quản trị
-
-<p align="center">
-  <img src="docs/screenshots/admin.png" width="280"/>
-</p>
+room-list.png
+room-detail.png
+booking-confirmation.png
+payment-success.png
+booking-history.png
+admin-dashboard.png
+admin-room-management.png
+admin-room-edit.png
+admin-booking-payment.png
 -->
 
 ## Tính năng chính
@@ -79,11 +73,11 @@ Sau khi đã thêm ảnh vào docs/screenshots/, thay các placeholder phía tr�
 
 ### Quản trị
 
-- Quản lý thông tin phòng và số lượng phòng khả dụng
-- Theo dõi danh sách booking
+- Xem tổng quan số booking, booking đã thanh toán, doanh thu, loại phòng và số phòng còn lại
+- Quản lý giá và số lượng phòng khả dụng
+- Theo dõi danh sách booking của người dùng
 - Theo dõi trạng thái booking và payment
-- Theo dõi thông tin thanh toán phục vụ quản lý hệ thống
-- Dữ liệu quản trị sử dụng cùng backend và cơ sở dữ liệu với ứng dụng người dùng
+- Theo dõi phương thức thanh toán, mã giao dịch và thời điểm thanh toán
 
 ## Công nghệ sử dụng
 
@@ -159,9 +153,11 @@ flowchart TB
 
 ```text
 BookingHotel/
-├── .github/       # GitHub Actions
-├── app/           # Android app
-├── backend/       # Spring Boot backend
+├── .github/             # GitHub Actions
+├── app/                 # Android app
+├── backend/             # Spring Boot backend
+├── docs/
+│   └── screenshots/     # Ảnh minh họa ứng dụng
 ├── gradle/
 ├── build.gradle.kts
 ├── settings.gradle.kts
