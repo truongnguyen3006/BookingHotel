@@ -21,34 +21,34 @@ README sử dụng **9 ảnh** để minh họa đầy đủ luồng người d�
 
 | Danh sách phòng | Chi tiết phòng | Xác nhận đặt phòng |
 |---|---|---|
-| <img src="docs/screenshots/room-list.png" width="230"/> | <img src="docs/screenshots/room-detail.png" width="230"/> | <img src="docs/screenshots/booking-confirmation.png" width="230"/> |
+| <img src="docs/screenshots/room-list.jpg" width="230"/> | <img src="docs/screenshots/room-detail.jpg" width="230"/> | <img src="docs/screenshots/booking-confirmation.jpg" width="230"/> |
 
 | Thanh toán thành công | Lịch sử đặt phòng |
 |---|---|
-| <img src="docs/screenshots/payment-success.png" width="280"/> | <img src="docs/screenshots/booking-history.png" width="280"/> |
+| <img src="docs/screenshots/payment-success.jpg" width="280"/> | <img src="docs/screenshots/booking-history.jpg" width="280"/> |
 
 ### Quản trị
 
 | Tổng quan quản trị | Quản lý phòng |
 |---|---|
-| <img src="docs/screenshots/admin-dashboard.png" width="280"/> | <img src="docs/screenshots/admin-room-management.png" width="280"/> |
+| <img src="docs/screenshots/admin-dashboard.jpg" width="280"/> | <img src="docs/screenshots/admin-room-management.jpg" width="280"/> |
 
 | Cập nhật phòng | Quản lý booking & payment |
 |---|---|
-| <img src="docs/screenshots/admin-room-edit.png" width="280"/> | <img src="docs/screenshots/admin-booking-payment.png" width="280"/> |
+| <img src="docs/screenshots/admin-room-edit.jpg" width="280"/> | <img src="docs/screenshots/admin-booking-payment.jpg" width="280"/> |
 
 <!--
 Tên file ảnh cần dùng trong docs/screenshots/:
 
-room-list.png
-room-detail.png
-booking-confirmation.png
-payment-success.png
-booking-history.png
-admin-dashboard.png
-admin-room-management.png
-admin-room-edit.png
-admin-booking-payment.png
+room-list.jpg
+room-detail.jpg
+booking-confirmation.jpg
+payment-success.jpg
+booking-history.jpg
+admin-dashboard.jpg
+admin-room-management.jpg
+admin-room-edit.jpg
+admin-booking-payment.jpg
 -->
 
 ## Tính năng chính
